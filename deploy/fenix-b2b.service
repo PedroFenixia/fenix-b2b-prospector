@@ -1,0 +1,16 @@
+[Unit]
+Description=FENIX B2B Prospector
+After=network.target
+
+[Service]
+Type=simple
+User=fenix
+Group=fenix
+WorkingDirectory=/opt/fenix-b2b
+ExecStart=/opt/fenix-b2b/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
