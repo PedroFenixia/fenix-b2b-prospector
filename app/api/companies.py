@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_db
@@ -9,14 +10,31 @@ from app.services.company_service import (
     get_company,
     get_company_acts,
     get_company_officers,
+    update_company_cif,
 )
 
 router = APIRouter()
 
 
+class UpdateCifRequest(BaseModel):
+    cif: str | None = None
+
+
 @router.get("/{company_id}", response_model=CompanyDetail)
 async def read_company(company_id: int, db: AsyncSession = Depends(get_db)):
     company = await get_company(company_id, db)
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    return company
+
+
+@router.patch("/{company_id}/cif", response_model=CompanyOut)
+async def patch_company_cif(
+    company_id: int,
+    body: UpdateCifRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    company = await update_company_cif(company_id, body.cif, db)
     if not company:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
     return company

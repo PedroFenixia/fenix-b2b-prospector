@@ -1,0 +1,80 @@
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <p class="text-sm text-gray-600">
+            <span class="font-semibold text-gray-900">{{ "{:,}".format(total) }}</span> licitaciones encontradas
+        </p>
+        <p class="text-sm text-gray-500">Pagina {{ page }} de {{ pages }}</p>
+    </div>
+
+    {% if tenders %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titulo</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organismo</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enlace</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for t in tenders %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3">
+                        <div class="text-sm font-medium text-gray-900 max-w-md">{{ t.titulo[:120] }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">{{ t.expediente }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{{ t.organismo or '-' }}</td>
+                    <td class="px-4 py-3">
+                        {% if t.tipo_contrato %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full
+                            {% if t.tipo_contrato == 'Servicios' %}bg-blue-100 text-blue-700
+                            {% elif t.tipo_contrato == 'Obras' %}bg-orange-100 text-orange-700
+                            {% elif t.tipo_contrato == 'Suministros' %}bg-green-100 text-green-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ t.tipo_contrato }}
+                        </span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-700">
+                        {% if t.importe_estimado %}
+                        {{ "{:,.0f}".format(t.importe_estimado) }} &euro;
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ t.fecha_publicacion }}</td>
+                    <td class="px-4 py-3">
+                        {% if t.url_licitacion %}
+                        <a href="{{ t.url_licitacion }}" target="_blank" class="text-brand-600 hover:text-brand-700 text-xs font-medium">Ver</a>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pages > 1 %}
+    <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+        <div class="flex gap-1">
+            {% if page > 1 %}
+            <button onclick="document.getElementById('tender-page-input').value={{ page - 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#tenders-results\']'), 'click')"
+                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">Anterior</button>
+            {% endif %}
+            {% if page < pages %}
+            <button onclick="document.getElementById('tender-page-input').value={{ page + 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#tenders-results\']'), 'click')"
+                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">Siguiente</button>
+            {% endif %}
+        </div>
+        <span class="text-sm text-gray-500">{{ per_page }} por pagina</span>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-16">
+        <p class="text-gray-400 text-lg">No se encontraron licitaciones</p>
+        <p class="text-gray-400 text-sm mt-1">Pulsa "Actualizar PLACSP" para cargar licitaciones recientes</p>
+    </div>
+    {% endif %}
+</div>

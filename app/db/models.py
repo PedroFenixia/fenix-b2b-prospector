@@ -147,6 +147,63 @@ class IngestionLog(Base):
     )
 
 
+class Subsidy(Base):
+    """Subvenciones y ayudas del BOE (Sección V.B)."""
+    __tablename__ = "subsidies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    boe_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    titulo: Mapped[str] = mapped_column(Text, nullable=False)
+    organismo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_pdf: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fecha_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
+    fecha_limite: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    importe: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    beneficiarios: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sector: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ambito: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_subsidies_fecha", "fecha_publicacion"),
+        Index("idx_subsidies_organismo", "organismo"),
+        Index("idx_subsidies_sector", "sector"),
+    )
+
+
+class Tender(Base):
+    """Licitaciones de la Plataforma de Contratación del Sector Público."""
+    __tablename__ = "tenders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    expediente: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    titulo: Mapped[str] = mapped_column(Text, nullable=False)
+    organismo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    estado: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tipo_contrato: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_licitacion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fecha_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
+    fecha_limite: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    importe_estimado: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    lugar_ejecucion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cpv_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_tenders_fecha", "fecha_publicacion"),
+        Index("idx_tenders_organismo", "organismo"),
+        Index("idx_tenders_estado", "estado"),
+        Index("idx_tenders_tipo", "tipo_contrato"),
+    )
+
+
 class ExportLog(Base):
     __tablename__ = "export_log"
 

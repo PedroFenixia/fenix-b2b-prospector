@@ -33,6 +33,18 @@
                        hx-indicator="#loading">
             </div>
 
+            <!-- CIF -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">CIF</label>
+                <input type="text" name="cif" placeholder="B12345678"
+                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                       hx-get="/search/results"
+                       hx-trigger="keyup changed delay:400ms"
+                       hx-target="#results"
+                       hx-include="#search-form"
+                       hx-indicator="#loading">
+            </div>
+
             <!-- Province -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>

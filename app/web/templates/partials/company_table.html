@@ -17,6 +17,7 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CIF</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provincia</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forma</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capital</th>
@@ -35,6 +36,7 @@
                         <div class="text-xs text-gray-500 truncate max-w-xs">{{ company.objeto_social[:80] }}</div>
                         {% endif %}
                     </td>
+                    <td class="px-4 py-3 text-sm text-gray-500 font-mono">{{ company.cif or '-' }}</td>
                     <td class="px-4 py-3 text-sm text-gray-700">{{ company.provincia or '-' }}</td>
                     <td class="px-4 py-3">
                         {% if company.forma_juridica %}

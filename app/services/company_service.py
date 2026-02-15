@@ -18,13 +18,18 @@ async def search_companies(filters: SearchFilters, db: AsyncSession) -> dict:
     """Search companies with filters. Returns {items, total, page, pages, per_page}."""
     query = select(Company)
 
-    # Free-text search on nombre_normalizado and objeto_social
+    # Free-text search on nombre_normalizado, objeto_social, and CIF
     if filters.q:
         pattern = f"%{filters.q.upper()}%"
         query = query.where(
             (Company.nombre_normalizado.like(pattern))
             | (Company.objeto_social.ilike(f"%{filters.q}%"))
+            | (Company.cif.ilike(f"%{filters.q}%"))
         )
+
+    # Dedicated CIF filter
+    if filters.cif:
+        query = query.where(Company.cif.ilike(f"%{filters.cif}%"))
 
     if filters.provincia:
         query = query.where(Company.provincia == filters.provincia)
@@ -117,3 +122,15 @@ async def get_company_officers(company_id: int, db: AsyncSession) -> list[Office
         .order_by(Officer.fecha_publicacion.desc())
     )
     return list(result.all())
+
+
+async def update_company_cif(company_id: int, cif: str | None, db: AsyncSession) -> Company | None:
+    """Update a company's CIF (manual enrichment)."""
+    result = await db.execute(select(Company).where(Company.id == company_id))
+    company = result.scalar_one_or_none()
+    if not company:
+        return None
+    company.cif = cif.strip().upper() if cif else None
+    await db.commit()
+    await db.refresh(company)
+    return company

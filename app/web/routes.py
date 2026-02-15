@@ -9,9 +9,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_db
+from app.schemas.opportunity import OpportunityFilters
 from app.schemas.search import SearchFilters
 from app.services.company_service import get_company, search_companies
 from app.services.ingestion_orchestrator import get_ingestion_status
+from app.services.opportunity_service import search_subsidies, search_tenders
 from app.utils.cnae import get_all_cnae
 from app.utils.provinces import get_all_provinces
 
@@ -51,6 +53,7 @@ async def search_page(request: Request, db: AsyncSession = Depends(get_db)):
 async def search_results(
     request: Request,
     q: str | None = None,
+    cif: str | None = None,
     provincia: str | None = None,
     forma_juridica: str | None = None,
     cnae_code: str | None = None,
@@ -63,7 +66,7 @@ async def search_results(
 ):
     """HTMX partial: search results table."""
     filters = SearchFilters(
-        q=q, provincia=provincia, forma_juridica=forma_juridica,
+        q=q, cif=cif, provincia=provincia, forma_juridica=forma_juridica,
         cnae_code=cnae_code, estado=estado, sort_by=sort_by,
         sort_order=sort_order, page=page, per_page=per_page,
     )
@@ -127,4 +130,71 @@ async def ingestion_status_partial(request: Request, db: AsyncSession = Depends(
         "request": request,
         "status": status,
         "recent_jobs": recent.all(),
+    })
+
+
+@web_router.get("/opportunities", response_class=HTMLResponse)
+async def opportunities_page(request: Request):
+    """Opportunities page (subsidies + tenders)."""
+    return templates.TemplateResponse("opportunities.html", {
+        "request": request,
+        "active_page": "opportunities",
+    })
+
+
+@web_router.get("/opportunities/subsidies-results", response_class=HTMLResponse)
+async def subsidies_results(
+    request: Request,
+    q: str | None = None,
+    organismo: str | None = None,
+    sector: str | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTMX partial: subsidies results table."""
+    filters = OpportunityFilters(
+        q=q, organismo=organismo, sector=sector,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        page=page, per_page=per_page,
+    )
+    result = await search_subsidies(filters, db)
+    return templates.TemplateResponse("partials/subsidies_table.html", {
+        "request": request,
+        "subsidies": result["items"],
+        "total": result["total"],
+        "page": result["page"],
+        "pages": result["pages"],
+        "per_page": result["per_page"],
+    })
+
+
+@web_router.get("/opportunities/tenders-results", response_class=HTMLResponse)
+async def tenders_results(
+    request: Request,
+    q: str | None = None,
+    organismo: str | None = None,
+    tipo_contrato: str | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTMX partial: tenders results table."""
+    filters = OpportunityFilters(
+        q=q, organismo=organismo, tipo_contrato=tipo_contrato,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        page=page, per_page=per_page,
+    )
+    result = await search_tenders(filters, db)
+    return templates.TemplateResponse("partials/tenders_table.html", {
+        "request": request,
+        "tenders": result["items"],
+        "total": result["total"],
+        "page": result["page"],
+        "pages": result["pages"],
+        "per_page": result["per_page"],
     })

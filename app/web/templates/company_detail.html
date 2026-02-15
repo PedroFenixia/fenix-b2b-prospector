@@ -36,12 +36,19 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Datos Basicos</h2>
             <dl class="space-y-3">
-                {% if company.cif %}
                 <div>
                     <dt class="text-xs text-gray-500 uppercase">CIF</dt>
-                    <dd class="text-sm text-gray-900 font-medium">{{ company.cif }}</dd>
+                    <dd class="flex items-center gap-2 mt-1" id="cif-display">
+                        <span class="text-sm text-gray-900 font-medium font-mono" id="cif-value">{{ company.cif or 'No disponible' }}</span>
+                        <button onclick="editCif()" class="text-xs text-brand-600 hover:text-brand-700 font-medium">Editar</button>
+                    </dd>
+                    <dd class="hidden items-center gap-2 mt-1" id="cif-edit">
+                        <input type="text" id="cif-input" value="{{ company.cif or '' }}" placeholder="B12345678"
+                               class="rounded-md border-gray-300 shadow-sm text-sm px-2 py-1 border font-mono w-32">
+                        <button onclick="saveCif({{ company.id }})" class="text-xs bg-brand-600 text-white px-2 py-1 rounded hover:bg-brand-700">Guardar</button>
+                        <button onclick="cancelCif()" class="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                    </dd>
                 </div>
-                {% endif %}
                 {% if company.domicilio %}
                 <div>
                     <dt class="text-xs text-gray-500 uppercase">Domicilio</dt>
@@ -149,4 +156,35 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function editCif() {
+    document.getElementById('cif-display').classList.add('hidden');
+    document.getElementById('cif-edit').classList.remove('hidden');
+    document.getElementById('cif-edit').classList.add('flex');
+    document.getElementById('cif-input').focus();
+}
+
+function cancelCif() {
+    document.getElementById('cif-edit').classList.add('hidden');
+    document.getElementById('cif-edit').classList.remove('flex');
+    document.getElementById('cif-display').classList.remove('hidden');
+}
+
+async function saveCif(companyId) {
+    const cif = document.getElementById('cif-input').value.trim() || null;
+    const resp = await fetch('/api/companies/' + companyId + '/cif', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cif: cif})
+    });
+    if (resp.ok) {
+        const data = await resp.json();
+        document.getElementById('cif-value').textContent = data.cif || 'No disponible';
+        cancelCif();
+    } else {
+        alert('Error al guardar el CIF');
+    }
+}
+</script>
 {% endblock %}

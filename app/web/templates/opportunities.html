@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Oportunidades - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">Oportunidades</h1>
+        <p class="text-gray-500 mt-1">Subvenciones del BOE y licitaciones de Contratacion Publica</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+        <nav class="flex space-x-8" id="opp-tabs">
+            <button onclick="switchTab('subsidies')" id="tab-subsidies"
+                    class="tab-btn border-b-2 border-brand-500 text-brand-600 py-3 px-1 text-sm font-medium">
+                Subvenciones BOE
+            </button>
+            <button onclick="switchTab('tenders')" id="tab-tenders"
+                    class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-1 text-sm font-medium">
+                Licitaciones Publicas
+            </button>
+        </nav>
+    </div>
+
+    <!-- Subsidies Tab -->
+    <div id="panel-subsidies">
+        <div class="flex items-center justify-between mb-4">
+            <form id="subsidies-form" class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
+                    <input type="text" name="q" placeholder="Palabra clave..."
+                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-48"
+                           hx-get="/opportunities/subsidies-results"
+                           hx-trigger="keyup changed delay:400ms"
+                           hx-target="#subsidies-results"
+                           hx-include="#subsidies-form">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Organismo</label>
+                    <input type="text" name="organismo" placeholder="Ministerio..."
+                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-40"
+                           hx-get="/opportunities/subsidies-results"
+                           hx-trigger="keyup changed delay:400ms"
+                           hx-target="#subsidies-results"
+                           hx-include="#subsidies-form">
+                </div>
+                <button type="button"
+                        class="px-3 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                        hx-get="/opportunities/subsidies-results"
+                        hx-target="#subsidies-results"
+                        hx-include="#subsidies-form">
+                    Buscar
+                </button>
+                <input type="hidden" name="page" value="1" id="sub-page-input">
+            </form>
+            <button class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                    hx-post="/api/opportunities/fetch-subsidies"
+                    hx-swap="none"
+                    hx-on::after-request="htmx.trigger(document.querySelector('#subsidies-results'), 'load')">
+                Actualizar BOE
+            </button>
+        </div>
+
+        <div id="subsidies-results"
+             hx-get="/opportunities/subsidies-results"
+             hx-trigger="load"
+             hx-include="#subsidies-form">
+            <div class="text-center py-12 text-gray-400">Cargando subvenciones...</div>
+        </div>
+    </div>
+
+    <!-- Tenders Tab -->
+    <div id="panel-tenders" class="hidden">
+        <div class="flex items-center justify-between mb-4">
+            <form id="tenders-form" class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
+                    <input type="text" name="q" placeholder="Palabra clave..."
+                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-48"
+                           hx-get="/opportunities/tenders-results"
+                           hx-trigger="keyup changed delay:400ms"
+                           hx-target="#tenders-results"
+                           hx-include="#tenders-form">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Tipo contrato</label>
+                    <select name="tipo_contrato"
+                            class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border"
+                            hx-get="/opportunities/tenders-results"
+                            hx-trigger="change"
+                            hx-target="#tenders-results"
+                            hx-include="#tenders-form">
+                        <option value="">Todos</option>
+                        <option value="Obras">Obras</option>
+                        <option value="Servicios">Servicios</option>
+                        <option value="Suministros">Suministros</option>
+                    </select>
+                </div>
+                <button type="button"
+                        class="px-3 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                        hx-get="/opportunities/tenders-results"
+                        hx-target="#tenders-results"
+                        hx-include="#tenders-form">
+                    Buscar
+                </button>
+                <input type="hidden" name="page" value="1" id="tender-page-input">
+            </form>
+            <button class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                    hx-post="/api/opportunities/fetch-tenders"
+                    hx-swap="none"
+                    hx-on::after-request="htmx.trigger(document.querySelector('#tenders-results'), 'load')">
+                Actualizar PLACSP
+            </button>
+        </div>
+
+        <div id="tenders-results"
+             hx-get="/opportunities/tenders-results"
+             hx-trigger="load"
+             hx-include="#tenders-form">
+            <div class="text-center py-12 text-gray-400">Cargando licitaciones...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(tab) {
+    document.getElementById('panel-subsidies').classList.toggle('hidden', tab !== 'subsidies');
+    document.getElementById('panel-tenders').classList.toggle('hidden', tab !== 'tenders');
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-brand-500', 'text-brand-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    const active = document.getElementById('tab-' + tab);
+    active.classList.add('border-brand-500', 'text-brand-600');
+    active.classList.remove('border-transparent', 'text-gray-500');
+}
+</script>
+{% endblock %}

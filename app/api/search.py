@@ -14,6 +14,7 @@ router = APIRouter()
 @router.get("", response_model=PaginatedResponse)
 async def search(
     q: str | None = None,
+    cif: str | None = None,
     provincia: str | None = None,
     forma_juridica: str | None = None,
     cnae_code: str | None = None,
@@ -33,6 +34,7 @@ async def search(
 ):
     filters = SearchFilters(
         q=q,
+        cif=cif,
         provincia=provincia,
         forma_juridica=forma_juridica,
         cnae_code=cnae_code,

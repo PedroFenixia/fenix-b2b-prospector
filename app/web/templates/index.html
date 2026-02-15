@@ -1,33 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - FENIX Prospector{% endblock %}
+{% block title %}Dashboard - FENIX B2B Prospector{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
     <!-- Header -->
     <div>
         <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p class="text-gray-500 mt-1">Resumen de datos extraidos del BORME</p>
+        <p class="text-gray-500 mt-1">Resumen de datos del BORME, BOE y Contratacion Publica</p>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <p class="text-sm text-gray-500 uppercase tracking-wide">Empresas</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ "{:,}".format(stats.total_companies) }}</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Empresas</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(stats.total_companies) }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <p class="text-sm text-gray-500 uppercase tracking-wide">Actos Mercantiles</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ "{:,}".format(stats.total_acts) }}</p>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Actos</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(stats.total_acts) }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <p class="text-sm text-gray-500 uppercase tracking-wide">Cargos</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ "{:,}".format(stats.total_officers) }}</p>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Cargos</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ "{:,}".format(stats.total_officers) }}</p>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <p class="text-sm text-gray-500 uppercase tracking-wide">Dias Procesados</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ stats.ingestion_coverage.total_days }}</p>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Subvenciones</p>
+            <p class="text-2xl font-bold text-purple-600 mt-1">{{ "{:,}".format(stats.total_subsidies) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Licitaciones</p>
+            <p class="text-2xl font-bold text-blue-600 mt-1">{{ "{:,}".format(stats.total_tenders) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Dias BORME</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.ingestion_coverage.total_days }}</p>
             {% if stats.ingestion_coverage.first_date %}
-            <p class="text-xs text-gray-400 mt-1">{{ stats.ingestion_coverage.first_date }} - {{ stats.ingestion_coverage.last_date }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ stats.ingestion_coverage.first_date }}</p>
             {% endif %}
         </div>
     </div>
@@ -104,6 +112,9 @@
         <div class="flex flex-wrap gap-4">
             <a href="/search" class="inline-flex items-center px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
                 Buscar Empresas
+            </a>
+            <a href="/opportunities" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium">
+                Oportunidades
             </a>
             <a href="/ingestion" class="inline-flex items-center px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition text-sm font-medium">
                 Ejecutar Ingesta

@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_db
-from app.db.models import Act, Company, IngestionLog, Officer
+from app.db.models import Act, Company, IngestionLog, Officer, Subsidy, Tender
 
 router = APIRouter()
 
@@ -14,6 +14,8 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
     total_companies = await db.scalar(select(func.count(Company.id))) or 0
     total_acts = await db.scalar(select(func.count(Act.id))) or 0
     total_officers = await db.scalar(select(func.count(Officer.id))) or 0
+    total_subsidies = await db.scalar(select(func.count(Subsidy.id))) or 0
+    total_tenders = await db.scalar(select(func.count(Tender.id))) or 0
 
     # Companies by province (top 15)
     prov_query = (
@@ -79,6 +81,8 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "total_companies": total_companies,
         "total_acts": total_acts,
         "total_officers": total_officers,
+        "total_subsidies": total_subsidies,
+        "total_tenders": total_tenders,
         "companies_by_province": by_province,
         "companies_by_forma": by_forma,
         "companies_by_estado": by_estado,

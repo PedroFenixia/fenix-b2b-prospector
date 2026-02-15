@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class SearchFilters(BaseModel):
     q: str | None = None
+    cif: str | None = None
     provincia: str | None = None
     forma_juridica: str | None = None
     cnae_code: str | None = None
