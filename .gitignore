@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+.env
+data/prospector.db
+data/borme_pdfs/
+data/exports/
+*.sqlite
+*.db

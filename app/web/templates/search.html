@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Buscar Empresas - FENIX Prospector{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Buscar Empresas</h1>
+            <p class="text-gray-500 mt-1">Filtra y encuentra leads en los datos del BORME</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportCSV()" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                Exportar CSV
+            </button>
+            <button onclick="exportExcel()" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                Exportar Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Filters -->
+    <form id="search-form" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Text Search -->
+            <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                <input type="text" name="q" placeholder="Nombre de empresa, objeto social..."
+                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                       hx-get="/search/results"
+                       hx-trigger="keyup changed delay:400ms"
+                       hx-target="#results"
+                       hx-include="#search-form"
+                       hx-indicator="#loading">
+            </div>
+
+            <!-- Province -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                <select name="provincia"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="">Todas</option>
+                    {% for p in provinces %}
+                    <option value="{{ p.nombre }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Forma Juridica -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Forma Juridica</label>
+                <select name="forma_juridica"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="">Todas</option>
+                    <option value="SL">SL</option>
+                    <option value="SLU">SLU</option>
+                    <option value="SA">SA</option>
+                    <option value="SAU">SAU</option>
+                    <option value="SLL">SLL</option>
+                    <option value="SCOOP">Cooperativa</option>
+                    <option value="CB">Comunidad de Bienes</option>
+                    <option value="SC">Sociedad Civil</option>
+                </select>
+            </div>
+
+            <!-- CNAE -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sector (CNAE)</label>
+                <select name="cnae_code"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="">Todos</option>
+                    {% for c in cnae_codes %}
+                    <option value="{{ c.code }}">{{ c.code }} - {{ c.description_es[:60] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Estado -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <select name="estado"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="">Todos</option>
+                    <option value="activa">Activa</option>
+                    <option value="disuelta">Disuelta</option>
+                    <option value="en_liquidacion">En liquidacion</option>
+                    <option value="extinguida">Extinguida</option>
+                </select>
+            </div>
+
+            <!-- Sort -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+                <select name="sort_by"
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="fecha_ultima_publicacion">Fecha publicacion</option>
+                    <option value="nombre">Nombre</option>
+                    <option value="capital_social">Capital social</option>
+                    <option value="provincia">Provincia</option>
+                </select>
+            </div>
+
+            <input type="hidden" name="sort_order" value="desc">
+            <input type="hidden" name="page" value="1" id="page-input">
+        </div>
+
+        <!-- Search Button -->
+        <div class="mt-4 flex items-center gap-4">
+            <button type="button"
+                    class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                    hx-get="/search/results"
+                    hx-target="#results"
+                    hx-include="#search-form"
+                    hx-indicator="#loading">
+                Buscar
+            </button>
+            <span id="loading" class="htmx-indicator text-sm text-gray-500">Buscando...</span>
+        </div>
+    </form>
+
+    <!-- Results -->
+    <div id="results"
+         hx-get="/search/results"
+         hx-trigger="load"
+         hx-include="#search-form">
+        <div class="text-center py-12 text-gray-400">Cargando...</div>
+    </div>
+</div>
+
+<script>
+function getFilterParams() {
+    const form = document.getElementById('search-form');
+    const data = new FormData(form);
+    const params = new URLSearchParams(data).toString();
+    return params;
+}
+
+function exportCSV() {
+    const params = getFilterParams();
+    window.location.href = '/api/export/csv?' + params;
+}
+
+function exportExcel() {
+    const params = getFilterParams();
+    window.location.href = '/api/export/excel?' + params;
+}
+
+function goToPage(page) {
+    document.getElementById('page-input').value = page;
+    htmx.trigger(document.querySelector('[hx-get="/search/results"]'), 'click');
+}
+</script>
+{% endblock %}

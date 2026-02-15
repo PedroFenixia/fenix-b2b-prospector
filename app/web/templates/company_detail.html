@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ company.nombre }} - FENIX Prospector{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Back link -->
+    <a href="/search" class="text-brand-600 hover:text-brand-700 text-sm font-medium">&larr; Volver a busqueda</a>
+
+    <!-- Company Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ company.nombre }}</h1>
+                <div class="flex items-center gap-3 mt-2">
+                    {% if company.forma_juridica %}
+                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">{{ company.forma_juridica }}</span>
+                    {% endif %}
+                    {% if company.estado == 'activa' %}
+                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Activa</span>
+                    {% elif company.estado == 'disuelta' %}
+                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Disuelta</span>
+                    {% else %}
+                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">{{ company.estado }}</span>
+                    {% endif %}
+                    {% if company.cnae_code %}
+                    <span class="text-xs text-gray-500">CNAE: {{ company.cnae_code }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Data -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Basic Info -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Datos Basicos</h2>
+            <dl class="space-y-3">
+                {% if company.cif %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">CIF</dt>
+                    <dd class="text-sm text-gray-900 font-medium">{{ company.cif }}</dd>
+                </div>
+                {% endif %}
+                {% if company.domicilio %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Domicilio</dt>
+                    <dd class="text-sm text-gray-900">{{ company.domicilio }}</dd>
+                </div>
+                {% endif %}
+                {% if company.provincia %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Provincia</dt>
+                    <dd class="text-sm text-gray-900">{{ company.provincia }}{% if company.localidad %} ({{ company.localidad }}){% endif %}</dd>
+                </div>
+                {% endif %}
+                {% if company.capital_social %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Capital Social</dt>
+                    <dd class="text-sm text-gray-900 font-medium">{{ "{:,.2f}".format(company.capital_social) }} &euro;</dd>
+                </div>
+                {% endif %}
+                {% if company.fecha_constitucion %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Fecha Constitucion</dt>
+                    <dd class="text-sm text-gray-900">{{ company.fecha_constitucion }}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Primera Publicacion BORME</dt>
+                    <dd class="text-sm text-gray-900">{{ company.fecha_primera_publicacion }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase">Ultima Publicacion BORME</dt>
+                    <dd class="text-sm text-gray-900">{{ company.fecha_ultima_publicacion }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Objeto Social -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Objeto Social</h2>
+            {% if company.objeto_social %}
+            <p class="text-sm text-gray-700 leading-relaxed">{{ company.objeto_social }}</p>
+            {% else %}
+            <p class="text-gray-400 text-sm">No disponible</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Officers -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Cargos</h2>
+        {% if company.officers %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Persona</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for officer in company.officers %}
+                    <tr>
+                        <td class="px-4 py-2 text-sm text-gray-900">{{ officer.nombre_persona }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">{{ officer.cargo }}</td>
+                        <td class="px-4 py-2">
+                            {% if officer.tipo_evento == 'nombramiento' %}
+                            <span class="text-xs font-medium text-green-600">Nombramiento</span>
+                            {% elif officer.tipo_evento == 'cese' %}
+                            <span class="text-xs font-medium text-red-600">Cese</span>
+                            {% else %}
+                            <span class="text-xs text-gray-500">{{ officer.tipo_evento }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 text-sm text-gray-500">{{ officer.fecha_publicacion }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-sm">No hay cargos registrados</p>
+        {% endif %}
+    </div>
+
+    <!-- Acts History -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Historial de Actos Mercantiles</h2>
+        {% if company.acts %}
+        <div class="space-y-3">
+            {% for act in company.acts %}
+            <div class="border border-gray-100 rounded-lg p-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-900">{{ act.tipo_acto }}</span>
+                    <span class="text-xs text-gray-500">{{ act.fecha_publicacion }}</span>
+                </div>
+                {% if act.borme_id %}
+                <p class="text-xs text-gray-400 mt-1">{{ act.borme_id }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-sm">No hay actos registrados</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

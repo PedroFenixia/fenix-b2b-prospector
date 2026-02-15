@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FENIX Prospector{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#faf5ff', 100: '#f3e8ff', 500: '#7c3aed', 600: '#6d28d9', 700: '#5b21b6', 800: '#4c1d95', 900: '#2e1065' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .htmx-request.htmx-indicator { display: inline-block; }
+    </style>
+</head>
+<body class="h-full bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-gray-900 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="text-white font-bold text-xl tracking-tight">
+                        <span class="text-brand-500">FENIX</span> Prospector
+                    </a>
+                    <div class="flex space-x-1">
+                        <a href="/"
+                           class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'dashboard' %}bg-gray-800 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                            Dashboard
+                        </a>
+                        <a href="/search"
+                           class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'search' %}bg-gray-800 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                            Buscar Empresas
+                        </a>
+                        <a href="/ingestion"
+                           class="px-3 py-2 rounded-md text-sm font-medium {% if active_page == 'ingestion' %}bg-gray-800 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}">
+                            Ingesta BORME
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-4 text-center text-gray-500 text-sm">
+            FENIX Prospector &mdash; Datos del BORME (BOE) &mdash; Solo datos publicos
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,10 @@
+/* Minimal custom styles - Tailwind via CDN handles most */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Smooth page transitions */
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+}
