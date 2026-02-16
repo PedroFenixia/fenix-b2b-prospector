@@ -1,8 +1,10 @@
 """Orchestrate the full BORME ingestion pipeline."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+from concurrent.futures import ProcessPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -22,30 +24,49 @@ logger = logging.getLogger(__name__)
 # Global state for tracking current ingestion
 _current_ingestion: Optional[dict] = None
 
+# Concurrency settings
+DATE_BATCH_SIZE = 5  # Process 5 dates in parallel
+PDF_PARSE_WORKERS = 6  # Parse 6 PDFs in parallel
+
 
 def get_ingestion_status() -> dict:
     return _current_ingestion or {"is_running": False}
 
 
 async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
-    """Ingest BORME data for a range of dates."""
+    """Ingest BORME data for a range of dates, processing in parallel batches."""
     global _current_ingestion
+    total_days = (fecha_hasta - fecha_desde).days + 1
     _current_ingestion = {
         "is_running": True,
         "fecha_desde": str(fecha_desde),
         "fecha_hasta": str(fecha_hasta),
         "current_date": None,
         "processed": 0,
-        "total": (fecha_hasta - fecha_desde).days + 1,
+        "total": total_days,
     }
 
-    current = fecha_desde
+    # Build list of all dates
+    all_dates = [fecha_desde + timedelta(days=i) for i in range(total_days)]
+
     try:
-        while current <= fecha_hasta:
-            _current_ingestion["current_date"] = str(current)
-            await ingest_single_date(current)
-            _current_ingestion["processed"] += 1
-            current += timedelta(days=1)
+        # Process in batches of DATE_BATCH_SIZE
+        for i in range(0, len(all_dates), DATE_BATCH_SIZE):
+            batch = all_dates[i : i + DATE_BATCH_SIZE]
+            _current_ingestion["current_date"] = f"{batch[0]} .. {batch[-1]}"
+
+            # Run batch in parallel
+            results = await asyncio.gather(
+                *[ingest_single_date(d) for d in batch],
+                return_exceptions=True,
+            )
+
+            # Log any errors but don't stop
+            for d, r in zip(batch, results):
+                if isinstance(r, Exception):
+                    logger.error(f"Batch ingestion failed for {d}: {r}")
+
+            _current_ingestion["processed"] += len(batch)
     finally:
         _current_ingestion = {"is_running": False}
 
@@ -95,14 +116,31 @@ async def ingest_single_date(fecha: date):
             log.status = "parsing"
             await db.commit()
 
-            # Step 3: Parse and store
+            # Step 3: Parse PDFs in parallel (CPU-bound, use thread pool)
             companies_new = 0
             companies_updated = 0
             acts_created = 0
             pdfs_parsed = 0
 
-            for entry, pdf_path in downloaded:
-                parsed_companies = parse_borme_pdf(pdf_path)
+            loop = asyncio.get_running_loop()
+            parse_sem = asyncio.Semaphore(PDF_PARSE_WORKERS)
+
+            async def parse_one(entry_path_pair):
+                entry, pdf_path = entry_path_pair
+                async with parse_sem:
+                    parsed = await loop.run_in_executor(
+                        None, parse_borme_pdf, pdf_path
+                    )
+                return entry, parsed
+
+            parse_tasks = [parse_one(ep) for ep in downloaded]
+            parse_results = await asyncio.gather(*parse_tasks, return_exceptions=True)
+
+            for pr in parse_results:
+                if isinstance(pr, Exception):
+                    logger.error(f"PDF parse error: {pr}")
+                    continue
+                entry, parsed_companies = pr
                 if parsed_companies:
                     pdfs_parsed += 1
 

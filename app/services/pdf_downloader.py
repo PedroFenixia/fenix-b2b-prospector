@@ -29,17 +29,18 @@ async def download_pdfs(
     out_dir = settings.borme_pdf_dir / year / month
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    async def download_one(entry: BormePdfEntry) -> tuple[BormePdfEntry, Path] | None:
-        filename = entry.id.replace("/", "_") + ".pdf"
-        local_path = out_dir / filename
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
 
-        if local_path.exists() and local_path.stat().st_size > 0:
-            logger.debug(f"Already downloaded: {filename}")
-            return (entry, local_path)
+        async def download_one(entry: BormePdfEntry) -> tuple[BormePdfEntry, Path] | None:
+            filename = entry.id.replace("/", "_") + ".pdf"
+            local_path = out_dir / filename
 
-        async with semaphore:
-            try:
-                async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            if local_path.exists() and local_path.stat().st_size > 0:
+                logger.debug(f"Already downloaded: {filename}")
+                return (entry, local_path)
+
+            async with semaphore:
+                try:
                     resp = await client.get(entry.url_pdf)
                     if resp.status_code == 200:
                         local_path.write_bytes(resp.content)
@@ -48,12 +49,12 @@ async def download_pdfs(
                     else:
                         logger.warning(f"Failed to download {entry.url_pdf}: HTTP {resp.status_code}")
                         return None
-            except Exception as e:
-                logger.error(f"Error downloading {entry.url_pdf}: {e}")
-                return None
+                except Exception as e:
+                    logger.error(f"Error downloading {entry.url_pdf}: {e}")
+                    return None
 
-    tasks = [download_one(entry) for entry in pdfs]
-    completed = await asyncio.gather(*tasks)
+        tasks = [download_one(entry) for entry in pdfs]
+        completed = await asyncio.gather(*tasks)
 
     for result in completed:
         if result is not None:
