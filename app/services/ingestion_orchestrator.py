@@ -25,10 +25,31 @@ logger = logging.getLogger(__name__)
 # Global state for tracking current ingestion
 _current_ingestion: Optional[dict] = None
 
-# Moderate concurrency - safe for BOE without triggering blocks
-PREFETCH_AHEAD = 5
+# Concurrency profiles: off-peak (nights/weekends/holidays) vs normal
 PDF_PARSE_WORKERS = 4
-PAUSE_BETWEEN_DATES = 0.3  # seconds between dates
+
+_SPANISH_HOLIDAYS = {
+    (1, 1), (1, 6), (3, 19), (5, 1), (8, 15),
+    (10, 12), (11, 1), (12, 6), (12, 8), (12, 25),
+}
+
+
+def _is_off_peak() -> bool:
+    """Off-peak = nights (22-07h), weekends, or Spanish national holidays."""
+    now = datetime.utcnow() + timedelta(hours=1)  # CET approx
+    if now.weekday() >= 5:  # Saturday/Sunday
+        return True
+    if (now.month, now.day) in _SPANISH_HOLIDAYS:
+        return True
+    if now.hour >= 22 or now.hour < 7:
+        return True
+    return False
+
+
+def _get_speed():
+    if _is_off_peak():
+        return {"prefetch": 8, "pause": 0.1, "concurrency": 25}
+    return {"prefetch": 5, "pause": 0.3, "concurrency": 15}
 
 
 def get_ingestion_status() -> dict:
@@ -92,10 +113,15 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date, reverse: bool 
         all_dates.reverse()
 
     try:
-        # Process in batches: prefetch+parse in parallel, then write to DB sequentially
-        for i in range(0, len(all_dates), PREFETCH_AHEAD):
-            batch = all_dates[i : i + PREFETCH_AHEAD]
+        idx = 0
+        while idx < len(all_dates):
+            speed = _get_speed()
+            prefetch = speed["prefetch"]
+            pause = speed["pause"]
+
+            batch = all_dates[idx : idx + prefetch]
             _current_ingestion["current_date"] = f"{batch[0]} .. {batch[-1]}"
+            _current_ingestion["mode"] = "off-peak" if _is_off_peak() else "normal"
 
             # Filter out already-completed dates before fetching
             dates_to_fetch = []
@@ -113,6 +139,7 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date, reverse: bool 
 
             if not dates_to_fetch:
                 _current_ingestion["processed"] += len(batch)
+                idx += prefetch
                 continue
 
             # Prefetch + parse all dates in parallel (network + CPU, no DB)
@@ -131,10 +158,11 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date, reverse: bool 
                 await _store_date_results(fecha, sumario, all_parsed)
 
             _current_ingestion["processed"] += len(batch)
+            idx += prefetch
 
-            # Polite pause between date batches to avoid rate limiting
-            if PAUSE_BETWEEN_DATES > 0:
-                await asyncio.sleep(PAUSE_BETWEEN_DATES)
+            # Polite pause between date batches
+            if pause > 0:
+                await asyncio.sleep(pause)
     finally:
         _current_ingestion = {"is_running": False}
 

@@ -23,7 +23,9 @@ async def download_pdfs(
     Returns list of (entry, local_path) tuples for successfully downloaded files.
     """
     results: list[tuple[BormePdfEntry, Path]] = []
-    semaphore = asyncio.Semaphore(settings.pdf_download_concurrency)
+    from app.services.ingestion_orchestrator import _get_speed
+    concurrency = _get_speed()["concurrency"]
+    semaphore = asyncio.Semaphore(concurrency)
 
     year, month = fecha_str[:4], fecha_str[4:6]
     out_dir = settings.borme_pdf_dir / year / month
