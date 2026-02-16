@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 _current_ingestion: Optional[dict] = None
 
 # Moderate concurrency - safe for BOE without triggering blocks
-PREFETCH_AHEAD = 3
+PREFETCH_AHEAD = 5
 PDF_PARSE_WORKERS = 4
-PAUSE_BETWEEN_DATES = 0.5  # seconds between dates
+PAUSE_BETWEEN_DATES = 0.3  # seconds between dates
 
 
 def get_ingestion_status() -> dict:

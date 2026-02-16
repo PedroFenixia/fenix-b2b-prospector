@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     boe_api_base: str = "https://boe.es/datosabiertos/api"
 
     # Ingestion
-    pdf_download_concurrency: int = 10
+    pdf_download_concurrency: int = 15
 
     # Scheduler (activar con SCHEDULER_ENABLED=true en .env)
     scheduler_enabled: bool = False
