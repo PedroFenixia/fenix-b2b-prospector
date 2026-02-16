@@ -54,7 +54,7 @@ async def login_submit(request: Request):
     return templates.TemplateResponse("login.html", {
         "request": request,
         "error": "Usuario o contrasena incorrectos",
-    })
+    }, status_code=401)
 
 
 @web_router.get("/logout")
