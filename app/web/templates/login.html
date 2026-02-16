@@ -25,19 +25,19 @@
         ::selection { background: #4d65ff; color: #fff; }
     </style>
 </head>
-<body class="h-full bg-[#FFFEF8] font-sans flex items-center justify-center min-h-screen">
+<body class="h-full bg-gray-900 font-sans flex items-center justify-center min-h-screen">
     <div class="w-full max-w-md px-6">
         <div class="text-center mb-8">
-            <img src="/static/logo.png" alt="FENIX" class="h-14 mx-auto mb-4">
-            <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">
+            <img src="/static/logo.png" alt="FENIX" class="h-16 mx-auto mb-5">
+            <h1 class="text-2xl font-extrabold text-white tracking-tight">
                 <span class="text-brand-500">FENIX</span> B2B Prospector
             </h1>
-            <p class="text-gray-400 text-sm mt-2">Accede a tu panel de prospeccion</p>
+            <p class="text-gray-500 text-sm mt-2">Accede a tu panel de prospeccion</p>
         </div>
 
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,.04)] p-8">
+        <div class="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl p-8">
             {% if error %}
-            <div class="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 font-medium">
+            <div class="mb-4 p-3 bg-red-900/30 border border-red-800/50 rounded-xl text-sm text-red-400 font-medium">
                 {{ error }}
             </div>
             {% endif %}
@@ -46,23 +46,23 @@
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Usuario</label>
                     <input type="text" name="username" required autofocus
-                           class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition bg-[#FAFAF8]"
-                           placeholder="admin">
+                           class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                           placeholder="pedro@fenixia.tech">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Contrasena</label>
                     <input type="password" name="password" required
-                           class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition bg-[#FAFAF8]">
+                           class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition">
                 </div>
                 <button type="submit"
-                        class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(77,101,255,.2)] hover:shadow-[0_6px_24px_rgba(77,101,255,.28)] hover:-translate-y-0.5 transform">
+                        class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(77,101,255,.3)] hover:shadow-[0_6px_28px_rgba(77,101,255,.4)] hover:-translate-y-0.5 transform">
                     Iniciar sesion
                 </button>
             </form>
         </div>
 
         <div class="text-center mt-8">
-            <p class="text-xs text-gray-300">FENIX IA SOLUTIONS &mdash; fenixia.tech</p>
+            <p class="text-xs text-gray-600">FENIX IA SOLUTIONS &mdash; fenixia.tech</p>
         </div>
     </div>
 </body>
