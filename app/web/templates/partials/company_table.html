@@ -110,18 +110,3 @@
 </div>
 {% endif %}
 
-<script>
-function changePerPage(val) {
-    const form = document.getElementById('search-form');
-    let perPageInput = form.querySelector('input[name="per_page"]');
-    if (!perPageInput) {
-        perPageInput = document.createElement('input');
-        perPageInput.type = 'hidden';
-        perPageInput.name = 'per_page';
-        form.appendChild(perPageInput);
-    }
-    perPageInput.value = val;
-    document.getElementById('page-input').value = 1;
-    htmx.trigger(document.querySelector('[hx-get="/search/results"]'), 'click');
-}
-</script>

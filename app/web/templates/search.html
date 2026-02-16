@@ -160,7 +160,7 @@
 
         <!-- Search Button -->
         <div class="mt-4 flex items-center gap-4">
-            <button type="button"
+            <button type="button" id="search-btn"
                     class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition"
                     hx-get="/search/results"
                     hx-target="#results"
@@ -201,7 +201,21 @@ function exportExcel() {
 
 function goToPage(page) {
     document.getElementById('page-input').value = page;
-    htmx.trigger(document.querySelector('[hx-get="/search/results"]'), 'click');
+    htmx.trigger(document.getElementById('search-btn'), 'click');
+}
+
+function changePerPage(val) {
+    var form = document.getElementById('search-form');
+    var perPageInput = form.querySelector('input[name="per_page"]');
+    if (!perPageInput) {
+        perPageInput = document.createElement('input');
+        perPageInput.type = 'hidden';
+        perPageInput.name = 'per_page';
+        form.appendChild(perPageInput);
+    }
+    perPageInput.value = val;
+    document.getElementById('page-input').value = 1;
+    htmx.trigger(document.getElementById('search-btn'), 'click');
 }
 </script>
 {% endblock %}

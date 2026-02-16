@@ -62,6 +62,25 @@
         </div>
     </div>
 
+    <!-- CIF Enrichment -->
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-base font-bold text-gray-900">Enriquecimiento de CIF</h2>
+                <p class="text-xs text-gray-400 mt-0.5">Busca CIF autom&aacute;ticamente para empresas sin CIF (APIEmpresas.es)</p>
+            </div>
+            <div id="cif-stats" class="text-right">
+                <span class="text-xs text-gray-400">Cargando cobertura...</span>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <button id="btn-enrich-cif" onclick="enrichCif()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Buscar CIF (lote de 50)
+            </button>
+            <span id="cif-status" class="text-sm text-gray-500"></span>
+        </div>
+    </div>
+
     <!-- Status -->
     <div id="ingestion-status"
          hx-get="/ingestion/status-partial"
@@ -111,5 +130,32 @@ const today = new Date().toISOString().split('T')[0];
 const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 document.getElementById('fecha_hasta').value = today;
 document.getElementById('fecha_desde').value = weekAgo;
+
+// Load CIF stats
+(async function() {
+    try {
+        const resp = await fetch('/api/ingestion/cif-stats');
+        const data = await resp.json();
+        document.getElementById('cif-stats').innerHTML =
+            '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + data.coverage_pct + '%</span> <span class="text-gray-400">cobertura</span></p>' +
+            '<p class="text-[10px] text-gray-400">' + data.with_cif + ' con CIF / ' + data.without_cif + ' sin CIF</p>';
+    } catch(e) {}
+})();
+
+async function enrichCif() {
+    const statusEl = document.getElementById('cif-status');
+    statusEl.textContent = 'Buscando CIF...';
+    try {
+        const resp = await fetch('/api/ingestion/enrich-cif', { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) {
+            statusEl.textContent = data.error;
+        } else {
+            statusEl.textContent = data.message;
+        }
+    } catch(e) {
+        statusEl.textContent = 'Error: ' + e.message;
+    }
+}
 </script>
 {% endblock %}

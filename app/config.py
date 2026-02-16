@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     scheduler_hour: int = 10
     scheduler_minute: int = 0
 
+    # CIF Enrichment (APIEmpresas.es - plan Sandbox gratuito)
+    apiempresas_key: str = ""
+
     # Auth
     admin_user: str = "admin"
     admin_password: str = "fenix2024"

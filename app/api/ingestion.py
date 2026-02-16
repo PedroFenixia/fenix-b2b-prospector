@@ -79,3 +79,38 @@ async def ingestion_log(
         .limit(per_page)
     )
     return [IngestionLogOut.model_validate(j) for j in result.all()]
+
+
+@router.post("/enrich-cif")
+async def enrich_cif(
+    background_tasks: BackgroundTasks,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger CIF enrichment for companies missing CIF."""
+    from app.config import settings
+    if not settings.apiempresas_key:
+        return {"error": "APIEMPRESAS_KEY not configured in .env"}
+
+    from app.services.cif_enrichment import count_missing_cif, enrich_batch
+
+    stats = await count_missing_cif(db)
+
+    async def _run_enrichment():
+        from app.db.engine import async_session
+        async with async_session() as session:
+            result = await enrich_batch(session, settings.apiempresas_key, limit=limit)
+            return result
+
+    background_tasks.add_task(_run_enrichment)
+    return {
+        "message": f"CIF enrichment started (batch of {limit})",
+        "missing_cif": stats,
+    }
+
+
+@router.get("/cif-stats")
+async def cif_stats(db: AsyncSession = Depends(get_db)):
+    """Get CIF coverage statistics."""
+    from app.services.cif_enrichment import count_missing_cif
+    return await count_missing_cif(db)
