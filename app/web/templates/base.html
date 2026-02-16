@@ -36,7 +36,7 @@
         .nav-link.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #4d65ff; border-radius: 2px; }
     </style>
 </head>
-<body class="h-full font-sans text-gray-600">
+<body class="min-h-screen flex flex-col font-sans text-gray-600">
     <!-- Navigation -->
     <nav class="sticky top-0 z-50 bg-[rgba(255,254,248,.92)] backdrop-blur-xl border-b border-transparent" id="main-nav">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -73,12 +73,12 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-900 mt-12">
+    <footer class="bg-gray-900 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
                 <div class="flex items-center gap-2.5">
