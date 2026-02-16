@@ -14,14 +14,22 @@ from app.db.models import Act, Alert, Company, Watchlist
 logger = logging.getLogger(__name__)
 
 
-async def add_to_watchlist(company_id: int, notas: str | None, db: AsyncSession) -> Watchlist | None:
-    """Añadir empresa a la watchlist."""
+async def add_to_watchlist(
+    company_id: int,
+    notas: str | None,
+    db: AsyncSession,
+    tipos_acto: list[str] | None = None,
+) -> Watchlist | None:
+    """Añadir empresa a la watchlist con filtro opcional de tipos de acto."""
+    import json
+    tipos_json = json.dumps(tipos_acto) if tipos_acto else None
     existing = await db.scalar(select(Watchlist).where(Watchlist.company_id == company_id))
     if existing:
         existing.notas = notas
+        existing.tipos_acto = tipos_json
         await db.commit()
         return existing
-    entry = Watchlist(company_id=company_id, notas=notas)
+    entry = Watchlist(company_id=company_id, notas=notas, tipos_acto=tipos_json)
     db.add(entry)
     await db.commit()
     await db.refresh(entry)
@@ -116,13 +124,24 @@ async def mark_all_read(db: AsyncSession) -> int:
 
 
 async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
-    """Generar alertas para empresas vigiladas que tuvieron actividad en una fecha."""
-    # Obtener IDs de empresas vigiladas
-    watched_ids = await db.scalars(select(Watchlist.company_id))
-    watched_set = set(watched_ids.all())
+    """Generar alertas para empresas vigiladas que tuvieron actividad en una fecha.
 
-    if not watched_set:
+    Respeta el filtro tipos_acto de cada watchlist entry (null = todos los tipos).
+    """
+    import json as _json
+
+    # Obtener watchlist con filtros
+    watchlist_entries = (await db.scalars(select(Watchlist))).all()
+    if not watchlist_entries:
         return 0
+
+    # Build map: company_id -> allowed act types (None = all)
+    watch_filters: dict[int, set[str] | None] = {}
+    for entry in watchlist_entries:
+        if entry.tipos_acto:
+            watch_filters[entry.company_id] = set(_json.loads(entry.tipos_acto))
+        else:
+            watch_filters[entry.company_id] = None  # all types
 
     # Buscar actos de esa fecha para empresas vigiladas
     acts = await db.scalars(
@@ -130,12 +149,17 @@ async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
         .options(joinedload(Act.company))
         .where(
             Act.fecha_publicacion == fecha,
-            Act.company_id.in_(watched_set),
+            Act.company_id.in_(watch_filters.keys()),
         )
     )
 
     count = 0
     for act in acts.unique().all():
+        allowed = watch_filters.get(act.company_id)
+        # Skip if act type not in the filter
+        if allowed is not None and act.tipo_acto not in allowed:
+            continue
+
         alert = Alert(
             company_id=act.company_id,
             act_id=act.id,

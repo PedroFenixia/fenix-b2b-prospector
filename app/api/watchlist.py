@@ -18,6 +18,7 @@ router = APIRouter()
 
 class WatchlistBody(BaseModel):
     notas: str | None = None
+    tipos_acto: list[str] | None = None
 
 
 @router.post("/{company_id}")
@@ -26,7 +27,7 @@ async def api_add_to_watchlist(
     body: WatchlistBody = WatchlistBody(),
     db: AsyncSession = Depends(get_db),
 ):
-    entry = await add_to_watchlist(company_id, body.notas, db)
+    entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto)
     return {"ok": True, "id": entry.id}
 
 

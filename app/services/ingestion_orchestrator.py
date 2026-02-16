@@ -288,6 +288,10 @@ async def _store_company(
 
     # Store acts
     for parsed_act in parsed.actos:
+        # Set fecha_constitucion from "Constitución" act type
+        if "onstituci" in parsed_act.tipo and not company.fecha_constitucion:
+            company.fecha_constitucion = fecha
+
         existing_act = await db.scalar(
             select(Act.id).where(
                 Act.company_id == company.id,
