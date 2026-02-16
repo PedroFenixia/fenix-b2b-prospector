@@ -81,6 +81,25 @@
         </div>
     </div>
 
+    <!-- Web Enrichment -->
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-base font-bold text-gray-900">Enriquecimiento Web</h2>
+                <p class="text-xs text-gray-400 mt-0.5">Busca en Google la web de la empresa y extrae CIF, email y tel&eacute;fono del aviso legal</p>
+            </div>
+            <div id="web-stats" class="text-right">
+                <span class="text-xs text-gray-400">Cargando...</span>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <button id="btn-enrich-web" onclick="enrichWeb()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Buscar en web (lote de 20)
+            </button>
+            <span id="web-status" class="text-sm text-gray-500"></span>
+        </div>
+    </div>
+
     <!-- Status -->
     <div id="ingestion-status"
          hx-get="/ingestion/status-partial"
@@ -153,6 +172,28 @@ async function enrichCif() {
         } else {
             statusEl.textContent = data.message;
         }
+    } catch(e) {
+        statusEl.textContent = 'Error: ' + e.message;
+    }
+}
+
+// Load web stats
+(async function() {
+    try {
+        const resp = await fetch('/api/ingestion/web-stats');
+        const data = await resp.json();
+        document.getElementById('web-stats').innerHTML =
+            '<p class="text-[10px] text-gray-400">' + data.with_web + ' con web / ' + data.with_email + ' con email / ' + data.with_phone + ' con tel</p>';
+    } catch(e) {}
+})();
+
+async function enrichWeb() {
+    const statusEl = document.getElementById('web-status');
+    statusEl.textContent = 'Buscando webs...';
+    try {
+        const resp = await fetch('/api/ingestion/enrich-web', { method: 'POST' });
+        const data = await resp.json();
+        statusEl.textContent = data.message || data.error || 'OK';
     } catch(e) {
         statusEl.textContent = 'Error: ' + e.message;
     }

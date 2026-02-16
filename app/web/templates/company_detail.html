@@ -104,9 +104,50 @@
             </dl>
         </div>
 
-        <!-- Objeto Social -->
+        <!-- Contacto -->
         <div class="card p-6">
-            <h2 class="text-base font-bold text-gray-900 mb-4">Objeto social</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-gray-900">Contacto</h2>
+                <button onclick="enrichWeb({{ company.id }})" id="btn-enrich-web" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">Buscar en web</button>
+            </div>
+            <dl class="space-y-3">
+                <div>
+                    <dt class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Web</dt>
+                    <dd class="text-sm mt-1" id="web-value">
+                        {% if company.web %}
+                        <a href="{{ company.web }}" target="_blank" class="text-brand-500 hover:text-brand-600 underline">{{ company.web|truncate(50) }}</a>
+                        {% else %}
+                        <span class="text-gray-400">No disponible</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Email</dt>
+                    <dd class="text-sm mt-1" id="email-value">
+                        {% if company.email %}
+                        <a href="mailto:{{ company.email }}" class="text-brand-500 hover:text-brand-600">{{ company.email }}</a>
+                        {% else %}
+                        <span class="text-gray-400">No disponible</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Tel&eacute;fono</dt>
+                    <dd class="text-sm mt-1 font-mono" id="phone-value">
+                        {% if company.telefono %}
+                        <a href="tel:{{ company.telefono }}" class="text-brand-500 hover:text-brand-600">{{ company.telefono }}</a>
+                        {% else %}
+                        <span class="text-gray-400">No disponible</span>
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Objeto Social -->
+    <div class="card p-6">
+        <h2 class="text-base font-bold text-gray-900 mb-4">Objeto social</h2>
             {% if company.objeto_social %}
             <p class="text-sm text-gray-700 leading-relaxed">{{ company.objeto_social }}</p>
             {% else %}
@@ -227,6 +268,32 @@ async function lookupCif(companyId) {
         } else {
             btn.textContent = data.error || 'No encontrado';
         }
+    } catch(e) {
+        btn.textContent = 'Error';
+    }
+}
+
+async function enrichWeb(companyId) {
+    var btn = document.getElementById('btn-enrich-web');
+    btn.textContent = 'Buscando...';
+    btn.disabled = true;
+    try {
+        var resp = await fetch('/api/companies/' + companyId + '/enrich-web', { method: 'POST' });
+        var data = await resp.json();
+        if (data.web) {
+            document.getElementById('web-value').innerHTML = '<a href="' + data.web + '" target="_blank" class="text-brand-500 hover:text-brand-600 underline">' + data.web.substring(0,50) + '</a>';
+        }
+        if (data.email) {
+            document.getElementById('email-value').innerHTML = '<a href="mailto:' + data.email + '" class="text-brand-500 hover:text-brand-600">' + data.email + '</a>';
+        }
+        if (data.telefono) {
+            document.getElementById('phone-value').innerHTML = '<a href="tel:' + data.telefono + '" class="text-brand-500 hover:text-brand-600">' + data.telefono + '</a>';
+        }
+        if (data.cif) {
+            document.getElementById('cif-value').textContent = data.cif;
+        }
+        btn.textContent = data.web ? 'Encontrado' : 'No encontrado';
+        btn.classList.add(data.web ? 'text-green-500' : 'text-red-400');
     } catch(e) {
         btn.textContent = 'Error';
     }

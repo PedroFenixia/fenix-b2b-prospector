@@ -54,6 +54,14 @@ async def lookup_company_cif(company_id: int, db: AsyncSession = Depends(get_db)
     return {"cif": None, "error": "CIF no encontrado"}
 
 
+@router.post("/{company_id}/enrich-web")
+async def enrich_company_web(company_id: int, db: AsyncSession = Depends(get_db)):
+    """Search web for company CIF, email, phone."""
+    from app.services.web_enrichment import enrich_single_web
+    result = await enrich_single_web(company_id, db)
+    return result
+
+
 @router.get("/{company_id}/acts", response_model=list[ActOut])
 async def read_company_acts(company_id: int, db: AsyncSession = Depends(get_db)):
     return await get_company_acts(company_id, db)

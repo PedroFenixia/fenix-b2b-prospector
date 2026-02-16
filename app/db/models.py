@@ -38,6 +38,9 @@ class Company(Base):
     fecha_constitucion: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     fecha_primera_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
     fecha_ultima_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    telefono: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    web: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     estado: Mapped[str] = mapped_column(Text, default="activa")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

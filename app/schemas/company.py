@@ -16,6 +16,9 @@ class CompanyBase(BaseModel):
     cnae_code: str | None = None
     capital_social: float | None = None
     fecha_constitucion: date | None = None
+    email: str | None = None
+    telefono: str | None = None
+    web: str | None = None
     estado: str = "activa"
 
 

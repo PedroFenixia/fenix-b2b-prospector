@@ -114,3 +114,33 @@ async def cif_stats(db: AsyncSession = Depends(get_db)):
     """Get CIF coverage statistics."""
     from app.services.cif_enrichment import count_missing_cif
     return await count_missing_cif(db)
+
+
+@router.post("/enrich-web")
+async def enrich_web(
+    background_tasks: BackgroundTasks,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger web enrichment: search company websites for CIF, email, phone."""
+    from app.services.web_enrichment import count_web_coverage, enrich_batch_web
+
+    stats = await count_web_coverage(db)
+
+    async def _run_web_enrichment():
+        from app.db.engine import async_session
+        async with async_session() as session:
+            await enrich_batch_web(session, limit=limit)
+
+    background_tasks.add_task(_run_web_enrichment)
+    return {
+        "message": f"Web enrichment started (batch of {limit})",
+        "coverage": stats,
+    }
+
+
+@router.get("/web-stats")
+async def web_stats(db: AsyncSession = Depends(get_db)):
+    """Get web enrichment coverage statistics."""
+    from app.services.web_enrichment import count_web_coverage
+    return await count_web_coverage(db)
