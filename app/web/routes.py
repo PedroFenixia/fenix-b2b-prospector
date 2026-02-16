@@ -4,16 +4,22 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import (
+    SESSION_COOKIE,
+    check_credentials,
+    create_session,
+    destroy_session,
+)
 from app.db.engine import get_db
 from app.schemas.opportunity import OpportunityFilters
 from app.schemas.search import SearchFilters
 from app.services.company_service import get_company, search_companies
 from app.services.ingestion_orchestrator import get_ingestion_status
-from app.services.opportunity_service import search_subsidies, search_tenders
+from app.services.opportunity_service import cross_search, search_judicial, search_subsidies, search_tenders
 from app.utils.cnae import get_all_cnae
 from app.utils.provinces import get_all_provinces
 
@@ -23,10 +29,47 @@ templates = Jinja2Templates(directory=str(templates_dir))
 web_router = APIRouter()
 
 
+# --- Auth routes ---
+
+@web_router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = ""):
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error,
+    })
+
+
+@web_router.post("/login")
+async def login_submit(request: Request):
+    form = await request.form()
+    username = form.get("username", "")
+    password = form.get("password", "")
+
+    if check_credentials(username, password):
+        token = create_session()
+        response = RedirectResponse(url="/", status_code=302)
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400)
+        return response
+
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": "Usuario o contrasena incorrectos",
+    })
+
+
+@web_router.get("/logout")
+async def logout(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    destroy_session(token)
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+# --- Dashboard ---
+
 @web_router.get("/", response_class=HTMLResponse)
 async def index(request: Request, db: AsyncSession = Depends(get_db)):
-    """Dashboard page."""
-    # Quick stats
     from app.api.stats import get_stats
     stats = await get_stats(db)
     return templates.TemplateResponse("index.html", {
@@ -36,9 +79,10 @@ async def index(request: Request, db: AsyncSession = Depends(get_db)):
     })
 
 
+# --- Search ---
+
 @web_router.get("/search", response_class=HTMLResponse)
 async def search_page(request: Request, db: AsyncSession = Depends(get_db)):
-    """Search page."""
     provinces = get_all_provinces()
     cnae_codes = get_all_cnae()
     return templates.TemplateResponse("search.html", {
@@ -64,7 +108,6 @@ async def search_results(
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
-    """HTMX partial: search results table."""
     filters = SearchFilters(
         q=q, cif=cif, provincia=provincia, forma_juridica=forma_juridica,
         cnae_code=cnae_code, estado=estado, sort_by=sort_by,
@@ -88,7 +131,6 @@ async def company_detail(
     company_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Company detail page."""
     company = await get_company(company_id, db)
     if not company:
         return HTMLResponse("<h1>Empresa no encontrada</h1>", status_code=404)
@@ -99,9 +141,10 @@ async def company_detail(
     })
 
 
+# --- Ingestion ---
+
 @web_router.get("/ingestion", response_class=HTMLResponse)
 async def ingestion_page(request: Request, db: AsyncSession = Depends(get_db)):
-    """Ingestion control panel."""
     from sqlalchemy import select
     from app.db.models import IngestionLog
 
@@ -119,7 +162,6 @@ async def ingestion_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 @web_router.get("/ingestion/status-partial", response_class=HTMLResponse)
 async def ingestion_status_partial(request: Request, db: AsyncSession = Depends(get_db)):
-    """HTMX partial: ingestion status badge."""
     status = get_ingestion_status()
     from sqlalchemy import select
     from app.db.models import IngestionLog
@@ -133,9 +175,10 @@ async def ingestion_status_partial(request: Request, db: AsyncSession = Depends(
     })
 
 
+# --- Opportunities ---
+
 @web_router.get("/opportunities", response_class=HTMLResponse)
 async def opportunities_page(request: Request):
-    """Opportunities page (subsidies + tenders)."""
     return templates.TemplateResponse("opportunities.html", {
         "request": request,
         "active_page": "opportunities",
@@ -154,7 +197,6 @@ async def subsidies_results(
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
-    """HTMX partial: subsidies results table."""
     filters = OpportunityFilters(
         q=q, organismo=organismo, sector=sector,
         fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
@@ -183,7 +225,6 @@ async def tenders_results(
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
-    """HTMX partial: tenders results table."""
     filters = OpportunityFilters(
         q=q, organismo=organismo, tipo_contrato=tipo_contrato,
         fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
@@ -197,4 +238,47 @@ async def tenders_results(
         "page": result["page"],
         "pages": result["pages"],
         "per_page": result["per_page"],
+    })
+
+
+@web_router.get("/opportunities/judicial-results", response_class=HTMLResponse)
+async def judicial_results(
+    request: Request,
+    q: str | None = None,
+    tipo: str | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    filters = OpportunityFilters(
+        q=q, tipo_contrato=tipo,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        page=page, per_page=per_page,
+    )
+    result = await search_judicial(filters, db)
+    return templates.TemplateResponse("partials/judicial_table.html", {
+        "request": request,
+        "notices": result["items"],
+        "total": result["total"],
+        "page": result["page"],
+        "pages": result["pages"],
+        "per_page": result["per_page"],
+    })
+
+
+@web_router.get("/opportunities/cross-search", response_class=HTMLResponse)
+async def cross_search_results(
+    request: Request,
+    cif: str | None = None,
+    nombre: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    results = await cross_search(cif, nombre, db)
+    return templates.TemplateResponse("partials/cross_search_results.html", {
+        "request": request,
+        "subsidies": results["subsidies"],
+        "tenders": results["tenders"],
+        "judicial": results["judicial"],
     })

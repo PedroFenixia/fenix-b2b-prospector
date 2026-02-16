@@ -13,7 +13,7 @@ from app.schemas.opportunity import (
     SubsidyOut,
     TenderOut,
 )
-from app.services.opportunity_service import search_subsidies, search_tenders
+from app.services.opportunity_service import search_judicial, search_subsidies, search_tenders
 
 router = APIRouter()
 
@@ -82,6 +82,24 @@ async def list_tenders(
     )
 
 
+@router.get("/judicial")
+async def list_judicial(
+    q: str | None = None,
+    tipo: str | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
+    page: int = 1,
+    per_page: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    filters = OpportunityFilters(
+        q=q, tipo_contrato=tipo,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        page=page, per_page=per_page,
+    )
+    return await search_judicial(filters, db)
+
+
 @router.post("/fetch-subsidies")
 async def trigger_fetch_subsidies(
     fecha: date | None = None,
@@ -108,3 +126,18 @@ async def trigger_fetch_tenders(
     raw = await fetch_recent_tenders(max_entries=100)
     count = await upsert_tenders(raw, db)
     return {"fetched": len(raw), "new": count}
+
+
+@router.post("/fetch-judicial")
+async def trigger_fetch_judicial(
+    fecha: date | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger fetching judicial notices from BOE."""
+    from app.services.boe_judicial_fetcher import fetch_boe_judicial
+    from app.services.opportunity_service import upsert_judicial
+
+    target_date = fecha or date.today()
+    raw = await fetch_boe_judicial(target_date)
+    count = await upsert_judicial(raw, db)
+    return {"date": target_date.isoformat(), "fetched": len(raw), "new": count}

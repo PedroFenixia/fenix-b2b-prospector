@@ -1,65 +1,66 @@
 <!-- Ingestion status partial (HTMX swappable, polled every 3s) -->
 
 {% if status.get('is_running', false) %}
-<div class="bg-brand-50 border border-brand-200 rounded-xl p-6 mb-6">
+<div class="card p-6 mb-6 border-brand-200 bg-brand-50">
     <div class="flex items-center gap-3 mb-3">
         <div class="animate-spin h-5 w-5 border-2 border-brand-500 border-t-transparent rounded-full"></div>
-        <h3 class="text-lg font-semibold text-brand-800">Ingesta en curso</h3>
+        <h3 class="text-base font-bold text-brand-800">Carga en curso</h3>
     </div>
     <p class="text-sm text-brand-700">
-        Procesando fecha: <strong>{{ status.get('current_date', '...') }}</strong>
+        Procesando fecha: <strong class="font-mono">{{ status.get('current_date', '...') }}</strong>
     </p>
     {% if status.get('total') %}
-    <div class="mt-3 w-full bg-brand-100 rounded-full h-2">
+    <div class="mt-3 w-full bg-brand-100 rounded-full h-1.5">
         {% set pct = (status.get('processed', 0) / status.get('total', 1) * 100) | int %}
-        <div class="bg-brand-500 h-2 rounded-full transition-all" style="width: {{ pct }}%"></div>
+        <div class="bg-brand-500 h-1.5 rounded-full transition-all" style="width: {{ pct }}%"></div>
     </div>
-    <p class="text-xs text-brand-600 mt-1">{{ status.get('processed', 0) }} / {{ status.get('total', 0) }} dias</p>
+    <p class="text-xs text-brand-600 mt-1 font-mono">{{ status.get('processed', 0) }} / {{ status.get('total', 0) }} dias</p>
     {% endif %}
 </div>
 {% endif %}
 
 <!-- Recent jobs -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h2 class="text-lg font-semibold text-gray-900 mb-4">Historial de Ingestas</h2>
+<div class="card p-6">
+    <h2 class="text-base font-bold text-gray-900 mb-4">Historial de cargas</h2>
     {% if recent_jobs %}
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha BORME</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">PDFs</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nuevas</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actualizadas</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actos</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-100">
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha BORME</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Estado</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">PDFs</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Nuevas</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actualizadas</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actos</th>
+                    <th class="text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Error</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody>
                 {% for job in recent_jobs %}
-                <tr>
-                    <td class="px-3 py-2 text-sm text-gray-900">{{ job.fecha_borme }}</td>
-                    <td class="px-3 py-2">
+                <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                    <td class="py-3 px-3 text-sm text-gray-900 font-mono text-xs">{{ job.fecha_borme }}</td>
+                    <td class="py-3 px-3">
                         {% if job.status == 'completed' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">OK</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-600 border border-green-100">OK</span>
                         {% elif job.status == 'failed' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Error</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-100">Error</span>
                         {% else %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">{{ job.status }}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">{{ job.status }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-3 py-2 text-sm text-gray-700">{{ job.pdfs_found }} / {{ job.pdfs_downloaded }} / {{ job.pdfs_parsed }}</td>
-                    <td class="px-3 py-2 text-sm text-gray-700">{{ job.companies_new }}</td>
-                    <td class="px-3 py-2 text-sm text-gray-700">{{ job.companies_updated }}</td>
-                    <td class="px-3 py-2 text-sm text-gray-700">{{ job.acts_created }}</td>
-                    <td class="px-3 py-2 text-sm text-red-500 truncate max-w-xs">{{ job.error_message or '' }}</td>
+                    <td class="py-3 px-3 text-sm text-gray-600 font-mono text-xs">{{ job.pdfs_found }}/{{ job.pdfs_downloaded }}/{{ job.pdfs_parsed }}</td>
+                    <td class="py-3 px-3 text-sm text-gray-700 font-mono text-xs">{{ job.companies_new }}</td>
+                    <td class="py-3 px-3 text-sm text-gray-700 font-mono text-xs">{{ job.companies_updated }}</td>
+                    <td class="py-3 px-3 text-sm text-gray-700 font-mono text-xs">{{ job.acts_created }}</td>
+                    <td class="py-3 px-3 text-sm text-red-500 truncate max-w-[200px] text-xs">{{ job.error_message or '' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% else %}
-    <p class="text-gray-400 text-sm">No se ha ejecutado ninguna ingesta todavia</p>
+    <p class="text-gray-400 text-sm">No se ha ejecutado ninguna carga todavia.</p>
+    <p class="text-gray-300 text-xs mt-1">Usa el formulario de arriba para iniciar una carga de datos.</p>
     {% endif %}
 </div>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - FENIX B2B Prospector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: {
+                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#4d65ff', 600: '#3b50e0', 700: '#2d3fb3' },
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-[#FFFEF8] font-sans flex items-center justify-center">
+    <div class="w-full max-w-md px-6">
+        <div class="text-center mb-8">
+            <img src="/static/logo.png" alt="FENIX" class="h-12 mx-auto mb-4">
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">FENIX B2B Prospector</h1>
+            <p class="text-gray-500 text-sm mt-1">Accede a tu panel de prospeccion</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,.04)] p-8">
+            {% if error %}
+            <div class="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="/login" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Usuario</label>
+                    <input type="text" name="username" required autofocus
+                           class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition bg-[#FAFAF8]"
+                           placeholder="admin">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Contrasena</label>
+                    <input type="password" name="password" required
+                           class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition bg-[#FAFAF8]">
+                </div>
+                <button type="submit"
+                        class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(77,101,255,.2)] hover:shadow-[0_6px_24px_rgba(77,101,255,.28)] hover:-translate-y-0.5 transform">
+                    Iniciar sesion
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-400 mt-6">FENIX B2B Prospector &mdash; Datos publicos BORME + BOE</p>
+    </div>
+</body>
+</html>

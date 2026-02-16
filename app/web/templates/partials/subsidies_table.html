@@ -1,72 +1,69 @@
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-        <p class="text-sm text-gray-600">
-            <span class="font-semibold text-gray-900">{{ "{:,}".format(total) }}</span> subvenciones encontradas
-        </p>
-        <p class="text-sm text-gray-500">Pagina {{ page }} de {{ pages }}</p>
-    </div>
+{% if total > 0 %}
+<div class="flex items-center justify-between mb-3">
+    <p class="text-sm text-gray-500">{{ total }} subvencion{{ 'es' if total != 1 else '' }}</p>
+</div>
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-100">
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Titulo</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Organismo</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Importe</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in subsidies %}
+            <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                <td class="py-3 px-4 max-w-md">
+                    <p class="text-sm font-medium text-gray-900 truncate">{{ s.titulo[:120] }}</p>
+                    {% if s.sector %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-600 border border-purple-100 mt-1">{{ s.sector[:40] }}</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-500 max-w-[200px] truncate">{{ s.organismo or '-' }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700 font-mono text-xs">
+                    {% if s.importe %}{{ "{:,.0f}".format(s.importe) }}&euro;{% else %}-{% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ s.fecha_publicacion }}</td>
+                <td class="py-3 px-4">
+                    {% if s.url_html %}
+                    <a href="{{ s.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">BOE</a>
+                    {% elif s.url_pdf %}
+                    <a href="{{ s.url_pdf }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">PDF</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-    {% if subsidies %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titulo</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organismo</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enlace</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for s in subsidies %}
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="px-4 py-3">
-                        <div class="text-sm font-medium text-gray-900 max-w-md">{{ s.titulo[:120] }}</div>
-                        {% if s.sector %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700 mt-1">{{ s.sector[:40] }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{{ s.organismo or '-' }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                        {% if s.importe %}
-                        {{ "{:,.0f}".format(s.importe) }} &euro;
-                        {% else %}-{% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ s.fecha_publicacion }}</td>
-                    <td class="px-4 py-3">
-                        {% if s.url_html %}
-                        <a href="{{ s.url_html }}" target="_blank" class="text-brand-600 hover:text-brand-700 text-xs font-medium">Ver BOE</a>
-                        {% elif s.url_pdf %}
-                        <a href="{{ s.url_pdf }}" target="_blank" class="text-brand-600 hover:text-brand-700 text-xs font-medium">PDF</a>
-                        {% else %}-{% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    {% if pages > 1 %}
-    <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-        <div class="flex gap-1">
-            {% if page > 1 %}
-            <button onclick="document.getElementById('sub-page-input').value={{ page - 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">Anterior</button>
-            {% endif %}
-            {% if page < pages %}
-            <button onclick="document.getElementById('sub-page-input').value={{ page + 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">Siguiente</button>
-            {% endif %}
-        </div>
-        <span class="text-sm text-gray-500">{{ per_page }} por pagina</span>
-    </div>
+{% if pages > 1 %}
+<div class="flex justify-center gap-2 mt-4">
+    {% if page > 1 %}
+    <button onclick="document.getElementById('sub-page-input').value={{ page - 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Anterior</button>
     {% endif %}
-
+    {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+    <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
     {% else %}
-    <div class="text-center py-16">
-        <p class="text-gray-400 text-lg">No se encontraron subvenciones</p>
-        <p class="text-gray-400 text-sm mt-1">Pulsa "Actualizar BOE" para cargar datos del BOE de hoy</p>
-    </div>
+    <button onclick="document.getElementById('sub-page-input').value={{ p }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</button>
+    {% endif %}
+    {% endfor %}
+    {% if page < pages %}
+    <button onclick="document.getElementById('sub-page-input').value={{ page + 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Siguiente</button>
     {% endif %}
 </div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-12">
+    <p class="text-gray-400 text-sm">No se encontraron subvenciones.</p>
+    <p class="text-gray-300 text-xs mt-1">Pulsa "Actualizar BOE" para cargar datos.</p>
+</div>
+{% endif %}

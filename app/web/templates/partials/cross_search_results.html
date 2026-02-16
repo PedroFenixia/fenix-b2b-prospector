@@ -1,0 +1,119 @@
+{% if not subsidies and not tenders and not judicial %}
+<div class="text-center py-12">
+    <p class="text-gray-400 text-sm">No se encontraron resultados para esta empresa.</p>
+    <p class="text-gray-300 text-xs mt-1">Asegurate de escribir el CIF completo o el nombre exacto de la empresa.</p>
+</div>
+{% else %}
+
+{% if subsidies %}
+<div class="card p-5 mb-4">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-600 border border-purple-100">Subvenciones</span>
+        <span class="text-sm text-gray-500">{{ subsidies|length }} resultado{{ 's' if subsidies|length != 1 else '' }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-100">
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Titulo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Organismo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in subsidies %}
+                <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                    <td class="py-2 px-3 max-w-sm"><p class="text-sm text-gray-900 truncate">{{ s.titulo[:100] }}</p></td>
+                    <td class="py-2 px-3 text-sm text-gray-500">{{ s.organismo or '-' }}</td>
+                    <td class="py-2 px-3 text-sm text-gray-500 font-mono text-xs">{{ s.fecha_publicacion }}</td>
+                    <td class="py-2 px-3">
+                        {% if s.url_html %}<a href="{{ s.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">BOE</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if tenders %}
+<div class="card p-5 mb-4">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-50 text-cyan-600 border border-cyan-100">Licitaciones</span>
+        <span class="text-sm text-gray-500">{{ tenders|length }} resultado{{ 's' if tenders|length != 1 else '' }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-100">
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Titulo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Organismo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Tipo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tenders %}
+                <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                    <td class="py-2 px-3 max-w-sm"><p class="text-sm text-gray-900 truncate">{{ t.titulo[:100] }}</p></td>
+                    <td class="py-2 px-3 text-sm text-gray-500">{{ t.organismo or '-' }}</td>
+                    <td class="py-2 px-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ t.tipo_contrato or '-' }}</span></td>
+                    <td class="py-2 px-3 text-sm text-gray-500 font-mono text-xs">{{ t.fecha_publicacion }}</td>
+                    <td class="py-2 px-3">
+                        {% if t.url_licitacion %}<a href="{{ t.url_licitacion }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">PLACSP</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if judicial %}
+<div class="card p-5 mb-4">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 border border-red-100">Anuncios Judiciales</span>
+        <span class="text-sm text-gray-500">{{ judicial|length }} resultado{{ 's' if judicial|length != 1 else '' }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-100">
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Titulo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Tipo</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Deudor</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                    <th class="text-left py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in judicial %}
+                <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                    <td class="py-2 px-3 max-w-sm"><p class="text-sm text-gray-900 truncate">{{ n.titulo[:100] }}</p></td>
+                    <td class="py-2 px-3">
+                        {% if n.tipo == 'concurso_acreedores' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-100">Concurso</span>
+                        {% elif n.tipo == 'embargo' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Embargo</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">Judicial</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-sm text-gray-600">{{ n.deudor or '-' }}</td>
+                    <td class="py-2 px-3 text-sm text-gray-500 font-mono text-xs">{{ n.fecha_publicacion }}</td>
+                    <td class="py-2 px-3">
+                        {% if n.url_html %}<a href="{{ n.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">BOE</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}

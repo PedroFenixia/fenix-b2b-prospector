@@ -1,113 +1,86 @@
 <!-- Search results partial (HTMX swappable) -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <!-- Result count -->
-    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-        <p class="text-sm text-gray-600">
-            <span class="font-semibold text-gray-900">{{ "{:,}".format(total) }}</span> empresas encontradas
-        </p>
-        <p class="text-sm text-gray-500">
-            Pagina {{ page }} de {{ pages }}
-        </p>
-    </div>
+<div class="flex items-center justify-between mb-3">
+    <p class="text-sm text-gray-500"><span class="font-bold text-gray-900 font-mono">{{ "{:,}".format(total) }}</span> empresas encontradas</p>
+    <p class="text-xs text-gray-400">Pagina {{ page }} de {{ pages }}</p>
+</div>
 
-    {% if companies %}
-    <!-- Table -->
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CIF</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provincia</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forma</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capital</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CNAE</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Publicacion</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for company in companies %}
-                <tr class="hover:bg-gray-50 cursor-pointer transition"
-                    onclick="window.location='/companies/{{ company.id }}'">
-                    <td class="px-4 py-3">
-                        <div class="text-sm font-medium text-gray-900">{{ company.nombre[:60] }}</div>
-                        {% if company.objeto_social %}
-                        <div class="text-xs text-gray-500 truncate max-w-xs">{{ company.objeto_social[:80] }}</div>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-500 font-mono">{{ company.cif or '-' }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">{{ company.provincia or '-' }}</td>
-                    <td class="px-4 py-3">
-                        {% if company.forma_juridica %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
-                            {{ company.forma_juridica }}
-                        </span>
-                        {% else %}-{% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                        {% if company.capital_social %}
-                        {{ "{:,.0f}".format(company.capital_social) }} &euro;
-                        {% else %}-{% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-500">{{ company.cnae_code or '-' }}</td>
-                    <td class="px-4 py-3">
-                        {% if company.estado == 'activa' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">activa</span>
-                        {% elif company.estado == 'disuelta' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">disuelta</span>
-                        {% elif company.estado == 'en_liquidacion' %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">liquidacion</span>
-                        {% else %}
-                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">{{ company.estado }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-500">{{ company.fecha_ultima_publicacion }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Pagination -->
-    {% if pages > 1 %}
-    <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-        <div class="flex gap-1">
-            {% if page > 1 %}
-            <button onclick="goToPage({{ page - 1 }})"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">
-                Anterior
-            </button>
-            {% endif %}
-
-            {% for p in range(1, pages + 1) %}
-                {% if p == page %}
-                <span class="px-3 py-1 text-sm bg-brand-600 text-white rounded-md">{{ p }}</span>
-                {% elif p <= 3 or p >= pages - 2 or (p >= page - 1 and p <= page + 1) %}
-                <button onclick="goToPage({{ p }})"
-                        class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">
-                    {{ p }}
-                </button>
-                {% elif p == 4 or p == pages - 3 %}
-                <span class="px-2 py-1 text-gray-400">...</span>
-                {% endif %}
+{% if companies %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-100">
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Empresa</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">CIF</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Provincia</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Forma</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Capital</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Estado</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Publicacion</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for company in companies %}
+            <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] cursor-pointer transition"
+                onclick="window.location='/companies/{{ company.id }}'">
+                <td class="py-3 px-4 max-w-xs">
+                    <p class="text-sm font-medium text-gray-900 truncate">{{ company.nombre[:60] }}</p>
+                    {% if company.objeto_social %}
+                    <p class="text-[11px] text-gray-400 truncate max-w-xs">{{ company.objeto_social[:80] }}</p>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ company.cif or '-' }}</td>
+                <td class="py-3 px-4 text-sm text-gray-600">{{ company.provincia or '-' }}</td>
+                <td class="py-3 px-4">
+                    {% if company.forma_juridica %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ company.forma_juridica }}</span>
+                    {% else %}-{% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-700 font-mono text-xs">
+                    {% if company.capital_social %}{{ "{:,.0f}".format(company.capital_social) }}&euro;{% else %}-{% endif %}
+                </td>
+                <td class="py-3 px-4">
+                    {% if company.estado == 'activa' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-600 border border-green-100">activa</span>
+                    {% elif company.estado == 'disuelta' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-100">disuelta</span>
+                    {% elif company.estado == 'en_liquidacion' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">liquidacion</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ company.estado }}</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ company.fecha_ultima_publicacion }}</td>
+            </tr>
             {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-            {% if page < pages %}
-            <button onclick="goToPage({{ page + 1 }})"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100">
-                Siguiente
-            </button>
-            {% endif %}
-        </div>
-        <span class="text-sm text-gray-500">{{ per_page }} por pagina</span>
-    </div>
+{% if pages > 1 %}
+<div class="flex justify-center gap-2 mt-4">
+    {% if page > 1 %}
+    <button onclick="goToPage({{ page - 1 }})" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Anterior</button>
     {% endif %}
 
-    {% else %}
-    <div class="text-center py-16">
-        <p class="text-gray-400 text-lg">No se encontraron empresas</p>
-        <p class="text-gray-400 text-sm mt-1">Ajusta los filtros o ejecuta una ingesta de datos</p>
-    </div>
+    {% for p in range(1, pages + 1) %}
+        {% if p == page %}
+        <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
+        {% elif p <= 3 or p >= pages - 2 or (p >= page - 1 and p <= page + 1) %}
+        <button onclick="goToPage({{ p }})" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</button>
+        {% elif p == 4 or p == pages - 3 %}
+        <span class="px-2 py-1.5 text-gray-300">...</span>
+        {% endif %}
+    {% endfor %}
+
+    {% if page < pages %}
+    <button onclick="goToPage({{ page + 1 }})" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Siguiente</button>
     {% endif %}
 </div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-12">
+    <p class="text-gray-400 text-sm">No se encontraron empresas</p>
+    <p class="text-gray-300 text-xs mt-1">Ajusta los filtros o ejecuta una carga de datos</p>
+</div>
+{% endif %}

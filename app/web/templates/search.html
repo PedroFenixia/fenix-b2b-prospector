@@ -1,31 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Buscar Empresas - FENIX Prospector{% endblock %}
+{% block title %}Empresas - FENIX B2B Prospector{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Buscar Empresas</h1>
-            <p class="text-gray-500 mt-1">Filtra y encuentra leads en los datos del BORME</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Base de datos</p>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Buscar Empresas</h1>
+            <p class="text-gray-500 mt-1 text-sm">Filtra y encuentra leads en los datos del BORME</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="exportCSV()" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+            <button onclick="exportCSV()" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm">
                 Exportar CSV
             </button>
-            <button onclick="exportExcel()" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+            <button onclick="exportExcel()" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-semibold transition shadow-sm">
                 Exportar Excel
             </button>
         </div>
     </div>
 
     <!-- Search Filters -->
-    <form id="search-form" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <form id="search-form" class="card p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Text Search -->
             <div class="lg:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                 <input type="text" name="q" placeholder="Nombre de empresa, objeto social..."
-                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                       class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                        hx-get="/search/results"
                        hx-trigger="keyup changed delay:400ms"
                        hx-target="#results"
@@ -35,9 +36,9 @@
 
             <!-- CIF -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">CIF</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">CIF</label>
                 <input type="text" name="cif" placeholder="B12345678"
-                       class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                       class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                        hx-get="/search/results"
                        hx-trigger="keyup changed delay:400ms"
                        hx-target="#results"
@@ -47,9 +48,9 @@
 
             <!-- Province -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Provincia</label>
                 <select name="provincia"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                         hx-get="/search/results"
                         hx-trigger="change"
                         hx-target="#results"
@@ -63,9 +64,9 @@
 
             <!-- Forma Juridica -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Forma Juridica</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Forma juridica</label>
                 <select name="forma_juridica"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                         hx-get="/search/results"
                         hx-trigger="change"
                         hx-target="#results"
@@ -84,9 +85,9 @@
 
             <!-- CNAE -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Sector (CNAE)</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Sector (CNAE)</label>
                 <select name="cnae_code"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                         hx-get="/search/results"
                         hx-trigger="change"
                         hx-target="#results"
@@ -100,9 +101,9 @@
 
             <!-- Estado -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Estado</label>
                 <select name="estado"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                         hx-get="/search/results"
                         hx-trigger="change"
                         hx-target="#results"
@@ -117,9 +118,9 @@
 
             <!-- Sort -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Ordenar por</label>
                 <select name="sort_by"
-                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm px-3 py-2 border"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                         hx-get="/search/results"
                         hx-trigger="change"
                         hx-target="#results"
@@ -138,14 +139,14 @@
         <!-- Search Button -->
         <div class="mt-4 flex items-center gap-4">
             <button type="button"
-                    class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                    class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition"
                     hx-get="/search/results"
                     hx-target="#results"
                     hx-include="#search-form"
                     hx-indicator="#loading">
                 Buscar
             </button>
-            <span id="loading" class="htmx-indicator text-sm text-gray-500">Buscando...</span>
+            <span id="loading" class="htmx-indicator text-sm text-gray-400">Buscando...</span>
         </div>
     </form>
 
@@ -154,7 +155,7 @@
          hx-get="/search/results"
          hx-trigger="load"
          hx-include="#search-form">
-        <div class="text-center py-12 text-gray-400">Cargando...</div>
+        <div class="text-center py-12 text-gray-400 text-sm">Cargando...</div>
     </div>
 </div>
 

@@ -4,48 +4,87 @@
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-3xl font-bold text-gray-900">Oportunidades</h1>
-        <p class="text-gray-500 mt-1">Subvenciones del BOE y licitaciones de Contratacion Publica</p>
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Inteligencia</p>
+        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Oportunidades</h1>
+        <p class="text-gray-500 mt-1 text-sm">Subvenciones, licitaciones publicas y anuncios judiciales del BOE</p>
     </div>
 
     <!-- Tabs -->
-    <div class="border-b border-gray-200">
-        <nav class="flex space-x-8" id="opp-tabs">
+    <div class="border-b border-gray-100">
+        <nav class="flex gap-1" id="opp-tabs">
+            <button onclick="switchTab('cross')" id="tab-cross"
+                    class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-brand-500 text-brand-500 transition">
+                Consulta Empresa
+            </button>
             <button onclick="switchTab('subsidies')" id="tab-subsidies"
-                    class="tab-btn border-b-2 border-brand-500 text-brand-600 py-3 px-1 text-sm font-medium">
-                Subvenciones BOE
+                    class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-700 transition">
+                Subvenciones
             </button>
             <button onclick="switchTab('tenders')" id="tab-tenders"
-                    class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-1 text-sm font-medium">
-                Licitaciones Publicas
+                    class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-700 transition">
+                Licitaciones
+            </button>
+            <button onclick="switchTab('judicial')" id="tab-judicial"
+                    class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-700 transition">
+                Anuncios Judiciales
             </button>
         </nav>
     </div>
 
+    <!-- Cross-reference Search Tab -->
+    <div id="panel-cross">
+        <div class="card p-6 mb-4">
+            <h2 class="text-base font-bold text-gray-900 mb-1">Buscar empresa en todas las fuentes</h2>
+            <p class="text-gray-400 text-xs mb-4">Busca por CIF o nombre fiscal si ha recibido subvenciones, licitaciones o tiene concursos de acreedores/embargos</p>
+            <form id="cross-form" class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">CIF</label>
+                    <input type="text" name="cif" placeholder="B12345678"
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-40 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Nombre empresa</label>
+                    <input type="text" name="nombre" placeholder="Razon social..."
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-64 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <button type="button"
+                        class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold transition"
+                        hx-get="/opportunities/cross-search"
+                        hx-target="#cross-results"
+                        hx-include="#cross-form">
+                    Consultar
+                </button>
+            </form>
+        </div>
+        <div id="cross-results">
+            <div class="text-center py-12 text-gray-400 text-sm">Introduce un CIF o nombre de empresa para buscar en subvenciones, licitaciones y anuncios judiciales.</div>
+        </div>
+    </div>
+
     <!-- Subsidies Tab -->
-    <div id="panel-subsidies">
-        <div class="flex items-center justify-between mb-4">
+    <div id="panel-subsidies" class="hidden">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
             <form id="subsidies-form" class="flex gap-3 items-end flex-wrap">
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                     <input type="text" name="q" placeholder="Palabra clave..."
-                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-48"
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-48 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                            hx-get="/opportunities/subsidies-results"
                            hx-trigger="keyup changed delay:400ms"
                            hx-target="#subsidies-results"
                            hx-include="#subsidies-form">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Organismo</label>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Organismo</label>
                     <input type="text" name="organismo" placeholder="Ministerio..."
-                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-40"
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-40 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                            hx-get="/opportunities/subsidies-results"
                            hx-trigger="keyup changed delay:400ms"
                            hx-target="#subsidies-results"
                            hx-include="#subsidies-form">
                 </div>
                 <button type="button"
-                        class="px-3 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                        class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition"
                         hx-get="/opportunities/subsidies-results"
                         hx-target="#subsidies-results"
                         hx-include="#subsidies-form">
@@ -53,39 +92,38 @@
                 </button>
                 <input type="hidden" name="page" value="1" id="sub-page-input">
             </form>
-            <button class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
                     hx-post="/api/opportunities/fetch-subsidies"
                     hx-swap="none"
                     hx-on::after-request="htmx.trigger(document.querySelector('#subsidies-results'), 'load')">
                 Actualizar BOE
             </button>
         </div>
-
         <div id="subsidies-results"
              hx-get="/opportunities/subsidies-results"
              hx-trigger="load"
              hx-include="#subsidies-form">
-            <div class="text-center py-12 text-gray-400">Cargando subvenciones...</div>
+            <div class="text-center py-12 text-gray-400 text-sm">Cargando subvenciones...</div>
         </div>
     </div>
 
     <!-- Tenders Tab -->
     <div id="panel-tenders" class="hidden">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
             <form id="tenders-form" class="flex gap-3 items-end flex-wrap">
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                     <input type="text" name="q" placeholder="Palabra clave..."
-                           class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border w-48"
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-48 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                            hx-get="/opportunities/tenders-results"
                            hx-trigger="keyup changed delay:400ms"
                            hx-target="#tenders-results"
                            hx-include="#tenders-form">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Tipo contrato</label>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Tipo contrato</label>
                     <select name="tipo_contrato"
-                            class="rounded-lg border-gray-300 shadow-sm text-sm px-3 py-2 border"
+                            class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
                             hx-get="/opportunities/tenders-results"
                             hx-trigger="change"
                             hx-target="#tenders-results"
@@ -97,7 +135,7 @@
                     </select>
                 </div>
                 <button type="button"
-                        class="px-3 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium"
+                        class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition"
                         hx-get="/opportunities/tenders-results"
                         hx-target="#tenders-results"
                         hx-include="#tenders-form">
@@ -105,35 +143,92 @@
                 </button>
                 <input type="hidden" name="page" value="1" id="tender-page-input">
             </form>
-            <button class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
                     hx-post="/api/opportunities/fetch-tenders"
                     hx-swap="none"
                     hx-on::after-request="htmx.trigger(document.querySelector('#tenders-results'), 'load')">
                 Actualizar PLACSP
             </button>
         </div>
-
         <div id="tenders-results"
              hx-get="/opportunities/tenders-results"
              hx-trigger="load"
              hx-include="#tenders-form">
-            <div class="text-center py-12 text-gray-400">Cargando licitaciones...</div>
+            <div class="text-center py-12 text-gray-400 text-sm">Cargando licitaciones...</div>
+        </div>
+    </div>
+
+    <!-- Judicial Tab -->
+    <div id="panel-judicial" class="hidden">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <form id="judicial-form" class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
+                    <input type="text" name="q" placeholder="Empresa, deudor..."
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-48 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                           hx-get="/opportunities/judicial-results"
+                           hx-trigger="keyup changed delay:400ms"
+                           hx-target="#judicial-results"
+                           hx-include="#judicial-form">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Tipo</label>
+                    <select name="tipo"
+                            class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                            hx-get="/opportunities/judicial-results"
+                            hx-trigger="change"
+                            hx-target="#judicial-results"
+                            hx-include="#judicial-form">
+                        <option value="">Todos</option>
+                        <option value="concurso_acreedores">Concurso de acreedores</option>
+                        <option value="embargo">Embargo</option>
+                        <option value="procedimiento_judicial">Procedimiento judicial</option>
+                    </select>
+                </div>
+                <button type="button"
+                        class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition"
+                        hx-get="/opportunities/judicial-results"
+                        hx-target="#judicial-results"
+                        hx-include="#judicial-form">
+                    Buscar
+                </button>
+                <input type="hidden" name="page" value="1" id="judicial-page-input">
+            </form>
+            <button class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition shadow-sm"
+                    hx-post="/api/opportunities/fetch-judicial"
+                    hx-swap="none"
+                    hx-on::after-request="htmx.trigger(document.querySelector('#judicial-results'), 'load')">
+                Actualizar BOE Judicial
+            </button>
+        </div>
+        <div id="judicial-results"
+             hx-get="/opportunities/judicial-results"
+             hx-trigger="load"
+             hx-include="#judicial-form">
+            <div class="text-center py-12 text-gray-400 text-sm">Cargando anuncios judiciales...</div>
         </div>
     </div>
 </div>
 
 <script>
 function switchTab(tab) {
+    document.getElementById('panel-cross').classList.toggle('hidden', tab !== 'cross');
     document.getElementById('panel-subsidies').classList.toggle('hidden', tab !== 'subsidies');
     document.getElementById('panel-tenders').classList.toggle('hidden', tab !== 'tenders');
+    document.getElementById('panel-judicial').classList.toggle('hidden', tab !== 'judicial');
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('border-brand-500', 'text-brand-600');
-        btn.classList.add('border-transparent', 'text-gray-500');
+        btn.classList.remove('border-brand-500', 'text-brand-500');
+        btn.classList.add('border-transparent', 'text-gray-400');
     });
     const active = document.getElementById('tab-' + tab);
-    active.classList.add('border-brand-500', 'text-brand-600');
-    active.classList.remove('border-transparent', 'text-gray-500');
+    active.classList.add('border-brand-500', 'text-brand-500');
+    active.classList.remove('border-transparent', 'text-gray-400');
+}
+
+function goToJudicialPage(page) {
+    document.getElementById('judicial-page-input').value = page;
+    htmx.trigger(document.querySelector('[hx-get="/opportunities/judicial-results"]'), 'click');
 }
 </script>
 {% endblock %}

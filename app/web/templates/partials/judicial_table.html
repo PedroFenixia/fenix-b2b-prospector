@@ -1,0 +1,63 @@
+{% if total > 0 %}
+<div class="flex items-center justify-between mb-3">
+    <p class="text-sm text-gray-500">{{ total }} resultado{{ 's' if total != 1 else '' }}</p>
+</div>
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-100">
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Titulo</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Tipo</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Deudor</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Juzgado</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for n in notices %}
+            <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
+                <td class="py-3 px-4 max-w-xs">
+                    <p class="text-sm font-medium text-gray-900 truncate">{{ n.titulo[:80] }}</p>
+                </td>
+                <td class="py-3 px-4">
+                    {% if n.tipo == 'concurso_acreedores' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 border border-red-100">Concurso</span>
+                    {% elif n.tipo == 'embargo' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Embargo</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">Judicial</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-sm text-gray-600">{{ n.deudor or '-' }}</td>
+                <td class="py-3 px-4 text-sm text-gray-500 max-w-[200px] truncate">{{ n.juzgado or '-' }}</td>
+                <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ n.fecha_publicacion }}</td>
+                <td class="py-3 px-4">
+                    {% if n.url_html %}
+                    <a href="{{ n.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">BOE</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if pages > 1 %}
+<div class="flex justify-center gap-2 mt-4">
+    {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+    <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
+    {% else %}
+    <button onclick="goToJudicialPage({{ p }})" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</button>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-12">
+    <p class="text-gray-400 text-sm">No se encontraron anuncios judiciales.</p>
+    <p class="text-gray-300 text-xs mt-1">Pulsa "Actualizar BOE Judicial" para importar datos.</p>
+</div>
+{% endif %}

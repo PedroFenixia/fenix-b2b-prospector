@@ -204,6 +204,34 @@ class Tender(Base):
     )
 
 
+class JudicialNotice(Base):
+    """Anuncios judiciales del BOE (concursos de acreedores, embargos, etc.)."""
+    __tablename__ = "judicial_notices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    boe_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    tipo: Mapped[str] = mapped_column(Text, nullable=False)
+    titulo: Mapped[str] = mapped_column(Text, nullable=False)
+    juzgado: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    localidad: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    deudor: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    url_pdf: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fecha_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_judicial_fecha", "fecha_publicacion"),
+        Index("idx_judicial_tipo", "tipo"),
+        Index("idx_judicial_provincia", "provincia"),
+        Index("idx_judicial_deudor", "deudor"),
+    )
+
+
 class ExportLog(Base):
     __tablename__ = "export_log"
 

@@ -18,10 +18,15 @@ class Settings(BaseSettings):
     # Ingestion
     pdf_download_concurrency: int = 3
 
-    # Scheduler
+    # Scheduler (activar con SCHEDULER_ENABLED=true en .env)
     scheduler_enabled: bool = False
     scheduler_hour: int = 10
     scheduler_minute: int = 0
+
+    # Auth
+    admin_user: str = "admin"
+    admin_password: str = "fenix2024"
+    secret_key: str = "fenix-b2b-secret-change-me-in-production"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
