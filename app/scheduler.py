@@ -14,7 +14,7 @@ scheduler = AsyncIOScheduler()
 
 
 async def daily_borme_update():
-    """Ingest yesterday's BORME (today's may not be published yet)."""
+    """Ingest yesterday's BORME (today's may not be published yet), then enrich CIF."""
     from app.services.ingestion_orchestrator import ingest_single_date
 
     yesterday = date.today() - timedelta(days=1)
@@ -24,6 +24,54 @@ async def daily_borme_update():
         logger.info(f"[Scheduler] BORME ingestion completed for {yesterday}")
     except Exception as e:
         logger.error(f"[Scheduler] BORME ingestion failed for {yesterday}: {e}")
+
+    # Auto-enrich CIF for new companies from today's ingestion
+    await _enrich_new_companies_cif(yesterday)
+
+
+async def _enrich_new_companies_cif(fecha: date):
+    """Enrich CIF for companies first published on a given date (new entries only)."""
+    from app.config import settings
+
+    if not settings.apiempresas_key:
+        return
+
+    from sqlalchemy import select
+
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.cif_enrichment import lookup_cif_by_name
+
+    async with async_session() as db:
+        # Only companies that appeared for the first time on this date and have no CIF
+        new_companies = (
+            await db.scalars(
+                select(Company).where(
+                    Company.fecha_primera_publicacion == fecha,
+                    Company.cif.is_(None),
+                )
+            )
+        ).all()
+
+        if not new_companies:
+            logger.info(f"[CIF] No new companies without CIF for {fecha}")
+            return
+
+        logger.info(f"[CIF] Enriching {len(new_companies)} new companies from {fecha}")
+        enriched = 0
+        for company in new_companies:
+            try:
+                cif = await lookup_cif_by_name(company.nombre, settings.apiempresas_key)
+                if cif:
+                    company.cif = cif
+                    enriched += 1
+                await asyncio.sleep(1.5)  # Rate limit
+            except Exception as e:
+                logger.warning(f"[CIF] Error for {company.nombre}: {e}")
+                break  # Stop on errors (likely rate limit)
+
+        await db.commit()
+        logger.info(f"[CIF] Enriched {enriched}/{len(new_companies)} companies for {fecha}")
 
 
 async def daily_boe_subsidies_update():
