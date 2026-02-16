@@ -3,8 +3,21 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Back link -->
-    <a href="/search" class="text-brand-500 hover:text-brand-600 text-sm font-medium transition">&larr; Volver a busqueda</a>
+    <!-- Back link + Watchlist -->
+    <div class="flex items-center justify-between">
+        <a href="/search" class="text-brand-500 hover:text-brand-600 text-sm font-medium transition">&larr; Volver a b&uacute;squeda</a>
+        <div id="watch-btn">
+            {% if watched %}
+            <button onclick="toggleWatch({{ company.id }}, false)" class="px-3 py-1.5 border border-brand-500 text-brand-500 rounded-lg text-sm font-semibold hover:bg-brand-50 transition">
+                Vigilando
+            </button>
+            {% else %}
+            <button onclick="toggleWatch({{ company.id }}, true)" class="px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-semibold hover:border-brand-500 hover:text-brand-500 transition">
+                Vigilar
+            </button>
+            {% endif %}
+        </div>
+    </div>
 
     <!-- Company Header -->
     <div class="card p-6">
@@ -194,6 +207,26 @@ async function saveCif(companyId) {
         cancelCif();
     } else {
         alert('Error al guardar el CIF');
+    }
+}
+
+async function toggleWatch(companyId, add) {
+    if (add) {
+        const resp = await fetch('/api/watchlist/' + companyId, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        if (resp.ok) {
+            document.getElementById('watch-btn').innerHTML =
+                '<button onclick="toggleWatch(' + companyId + ', false)" class="px-3 py-1.5 border border-brand-500 text-brand-500 rounded-lg text-sm font-semibold hover:bg-brand-50 transition">Vigilando</button>';
+        }
+    } else {
+        const resp = await fetch('/api/watchlist/' + companyId, { method: 'DELETE' });
+        if (resp.ok) {
+            document.getElementById('watch-btn').innerHTML =
+                '<button onclick="toggleWatch(' + companyId + ', true)" class="px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-sm font-semibold hover:border-brand-500 hover:text-brand-500 transition">Vigilar</button>';
+        }
     }
 }
 </script>

@@ -1,49 +1,38 @@
-"""Simple session-based authentication."""
+"""Signed-cookie session auth (works across multiple workers)."""
 from __future__ import annotations
 
-import hashlib
-import secrets
-from datetime import datetime, timedelta
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.config import settings
 
-# In-memory session store (simple for single-process deployment)
-_sessions: dict[str, datetime] = {}
 SESSION_COOKIE = "fenix_session"
-SESSION_TTL = timedelta(hours=24)
+SESSION_MAX_AGE = 86400  # 24 hours in seconds
 
-
-def _hash(value: str) -> str:
-    return hashlib.sha256(f"{settings.secret_key}:{value}".encode()).hexdigest()
+_signer = URLSafeTimedSerializer(settings.secret_key)
 
 
 def create_session() -> str:
-    """Create a new session token."""
-    token = secrets.token_urlsafe(32)
-    _sessions[token] = datetime.utcnow() + SESSION_TTL
-    return token
+    """Create a signed session token (stateless, works across workers)."""
+    return _signer.dumps({"user": settings.admin_user})
 
 
 def validate_session(token: str | None) -> bool:
-    """Check if a session token is valid."""
+    """Validate a signed session token."""
     if not token:
         return False
-    expiry = _sessions.get(token)
-    if not expiry:
+    try:
+        _signer.loads(token, max_age=SESSION_MAX_AGE)
+        return True
+    except (BadSignature, SignatureExpired):
         return False
-    if datetime.utcnow() > expiry:
-        _sessions.pop(token, None)
-        return False
-    return True
 
 
 def destroy_session(token: str | None) -> None:
-    """Remove a session."""
-    if token:
-        _sessions.pop(token, None)
+    """No-op for stateless sessions (cookie is deleted client-side)."""
+    pass
 
 
 def check_credentials(username: str, password: str) -> bool:

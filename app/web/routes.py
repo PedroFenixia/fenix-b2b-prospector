@@ -20,6 +20,7 @@ from app.schemas.search import SearchFilters
 from app.services.company_service import get_company, search_companies
 from app.services.ingestion_orchestrator import get_ingestion_status
 from app.services.opportunity_service import cross_search, search_judicial, search_subsidies, search_tenders
+from app.services.watchlist_service import count_unread_alerts, get_alerts, get_watchlist, is_watched
 from app.utils.cnae import get_all_cnae
 from app.utils.provinces import get_all_provinces
 
@@ -155,9 +156,11 @@ async def company_detail(
     company = await get_company(company_id, db)
     if not company:
         return HTMLResponse("<h1>Empresa no encontrada</h1>", status_code=404)
+    watched = await is_watched(company_id, db)
     return templates.TemplateResponse("company_detail.html", {
         "request": request,
         "company": company,
+        "watched": watched,
         "active_page": "search",
     })
 
@@ -302,4 +305,47 @@ async def cross_search_results(
         "subsidies": results["subsidies"],
         "tenders": results["tenders"],
         "judicial": results["judicial"],
+    })
+
+
+# --- Watchlist ---
+
+@web_router.get("/watchlist", response_class=HTMLResponse)
+async def watchlist_page(request: Request, db: AsyncSession = Depends(get_db)):
+    unread = await count_unread_alerts(db)
+    return templates.TemplateResponse("watchlist.html", {
+        "request": request,
+        "unread_count": unread,
+        "active_page": "watchlist",
+    })
+
+
+@web_router.get("/watchlist/list", response_class=HTMLResponse)
+async def watchlist_list(
+    request: Request,
+    page: int = 1,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await get_watchlist(db, page=page)
+    return templates.TemplateResponse("partials/watchlist_table.html", {
+        "request": request,
+        **result,
+    })
+
+
+@web_router.get("/watchlist/alerts", response_class=HTMLResponse)
+async def alerts_page(
+    request: Request,
+    solo_no_leidas: int = 0,
+    page: int = 1,
+    db: AsyncSession = Depends(get_db),
+):
+    unread = await count_unread_alerts(db)
+    alerts_result = await get_alerts(db, solo_no_leidas=bool(solo_no_leidas), page=page)
+    return templates.TemplateResponse("alerts.html", {
+        "request": request,
+        "alerts": alerts_result,
+        "unread_count": unread,
+        "solo_no_leidas": bool(solo_no_leidas),
+        "active_page": "watchlist",
     })

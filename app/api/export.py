@@ -11,13 +11,15 @@ from app.services.export_service import export_csv, export_excel
 router = APIRouter()
 
 
-@router.post("/csv")
+@router.get("/csv")
 async def export_to_csv(
     q: str | None = None,
     provincia: str | None = None,
     forma_juridica: str | None = None,
     cnae_code: str | None = None,
     estado: str | None = None,
+    pub_desde: str | None = None,
+    pub_hasta: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Export filtered companies as CSV."""
@@ -27,6 +29,8 @@ async def export_to_csv(
         forma_juridica=forma_juridica,
         cnae_code=cnae_code,
         estado=estado,
+        pub_desde=pub_desde,
+        pub_hasta=pub_hasta,
     )
     filepath = await export_csv(filters, db)
     return FileResponse(
@@ -37,13 +41,15 @@ async def export_to_csv(
     )
 
 
-@router.post("/excel")
+@router.get("/excel")
 async def export_to_excel(
     q: str | None = None,
     provincia: str | None = None,
     forma_juridica: str | None = None,
     cnae_code: str | None = None,
     estado: str | None = None,
+    pub_desde: str | None = None,
+    pub_hasta: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Export filtered companies as Excel."""
@@ -53,6 +59,8 @@ async def export_to_excel(
         forma_juridica=forma_juridica,
         cnae_code=cnae_code,
         estado=estado,
+        pub_desde=pub_desde,
+        pub_hasta=pub_hasta,
     )
     filepath = await export_excel(filters, db)
     return FileResponse(

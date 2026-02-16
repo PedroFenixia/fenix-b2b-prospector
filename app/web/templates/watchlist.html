@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Vigilancia - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Vigilancia</p>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Empresas vigiladas</h1>
+            <p class="text-gray-500 mt-1 text-sm">Recibe alertas cuando tus empresas tengan actividad nueva en el BORME</p>
+        </div>
+        {% if unread_count > 0 %}
+        <a href="/watchlist/alerts" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition shadow-sm">
+            <span class="inline-flex items-center justify-center w-5 h-5 bg-white text-brand-500 rounded-full text-xs font-bold">{{ unread_count }}</span>
+            Ver alertas
+        </a>
+        {% else %}
+        <a href="/watchlist/alerts" class="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+            Ver alertas
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Watchlist Table -->
+    <div id="watchlist-results"
+         hx-get="/watchlist/list"
+         hx-trigger="load">
+        <div class="text-center py-12 text-gray-400 text-sm">Cargando...</div>
+    </div>
+</div>
+{% endblock %}

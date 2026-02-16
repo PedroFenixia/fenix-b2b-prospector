@@ -232,6 +232,50 @@ class JudicialNotice(Base):
     )
 
 
+class Watchlist(Base):
+    """Empresas bajo vigilancia."""
+    __tablename__ = "watchlist"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    company: Mapped[Company] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("company_id", name="uq_watchlist_company"),
+        Index("idx_watchlist_company", "company_id"),
+    )
+
+
+class Alert(Base):
+    """Alertas generadas cuando una empresa vigilada tiene actividad nueva."""
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    act_id: Mapped[Optional[int]] = mapped_column(ForeignKey("acts.id", ondelete="SET NULL"), nullable=True)
+    tipo: Mapped[str] = mapped_column(Text, nullable=False)
+    titulo: Mapped[str] = mapped_column(Text, nullable=False)
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    leida: Mapped[bool] = mapped_column(Integer, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    company: Mapped[Company] = relationship()
+    act: Mapped[Optional[Act]] = relationship()
+
+    __table_args__ = (
+        Index("idx_alerts_company", "company_id"),
+        Index("idx_alerts_leida", "leida"),
+        Index("idx_alerts_created", "created_at"),
+    )
+
+
 class ExportLog(Base):
     __tablename__ = "export_log"
 

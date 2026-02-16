@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Alertas - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Vigilancia</p>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Alertas</h1>
+            <p class="text-gray-500 mt-1 text-sm">Actividad nueva en empresas vigiladas</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/watchlist" class="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                Empresas vigiladas
+            </a>
+            {% if unread_count > 0 %}
+            <button onclick="markAllRead()" class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                Marcar todas le&iacute;das
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="flex gap-2">
+        <a href="/watchlist/alerts" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+            Todas
+        </a>
+        <a href="/watchlist/alerts?solo_no_leidas=1" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+            Sin leer {% if unread_count > 0 %}({{ unread_count }}){% endif %}
+        </a>
+    </div>
+
+    <!-- Alerts List -->
+    <div id="alerts-list">
+    {% if alerts.total > 0 %}
+    <div class="space-y-2">
+        {% for alert in alerts.items %}
+        <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
+                    {% if not alert.leida %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Nueva</span>
+                    {% endif %}
+                    <span class="text-[10px] text-gray-300 font-mono">{{ alert.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <a href="/companies/{{ alert.company_id }}" class="text-sm font-semibold text-gray-900 hover:text-brand-500 transition mt-1 block">
+                    {{ alert.titulo }}
+                </a>
+                {% if alert.descripcion %}
+                <p class="text-xs text-gray-400 mt-1 line-clamp-2">{{ alert.descripcion[:200] }}</p>
+                {% endif %}
+            </div>
+            {% if not alert.leida %}
+            <button onclick="markRead({{ alert.id }}, this)" class="text-xs text-brand-500 hover:text-brand-600 font-medium whitespace-nowrap">Marcar le&iacute;da</button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if alerts.pages > 1 %}
+    <div class="flex justify-center gap-2 mt-4">
+        {% for p in range(1, alerts.pages + 1) %}
+        {% if p == alerts.page %}
+        <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
+        {% else %}
+        <a href="/watchlist/alerts?page={{ p }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}"
+           class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-16">
+        <p class="text-gray-400 text-sm">No hay alertas{% if solo_no_leidas %} sin leer{% endif %}.</p>
+        <p class="text-gray-300 text-xs mt-1">Las alertas se generan cuando se detecta actividad nueva en empresas vigiladas.</p>
+    </div>
+    {% endif %}
+    </div>
+</div>
+
+<script>
+async function markRead(alertId, btn) {
+    const resp = await fetch('/api/watchlist/alerts/' + alertId + '/read', { method: 'POST' });
+    if (resp.ok) {
+        btn.closest('.card').classList.remove('border-l-2', 'border-l-brand-500');
+        btn.remove();
+    }
+}
+
+async function markAllRead() {
+    const resp = await fetch('/api/watchlist/alerts/read-all', { method: 'POST' });
+    if (resp.ok) location.reload();
+}
+</script>
+{% endblock %}

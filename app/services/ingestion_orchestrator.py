@@ -25,11 +25,10 @@ logger = logging.getLogger(__name__)
 # Global state for tracking current ingestion
 _current_ingestion: Optional[dict] = None
 
-# Conservative concurrency to avoid BOE rate limiting
-# Process 1 date at a time, parse PDFs in parallel, pause between dates
-PREFETCH_AHEAD = 1
+# Moderate concurrency - safe for BOE without triggering blocks
+PREFETCH_AHEAD = 2
 PDF_PARSE_WORKERS = 4
-PAUSE_BETWEEN_DATES = 2  # seconds between dates to be polite
+PAUSE_BETWEEN_DATES = 1  # seconds between dates
 
 
 def get_ingestion_status() -> dict:
@@ -71,8 +70,12 @@ async def _fetch_and_parse(fecha: date):
     return fecha, sumario, all_parsed
 
 
-async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
-    """Ingest BORME data for a range of dates with prefetch pipeline."""
+async def ingest_date_range(fecha_desde: date, fecha_hasta: date, reverse: bool = True):
+    """Ingest BORME data for a range of dates with prefetch pipeline.
+
+    Args:
+        reverse: If True, process from most recent to oldest (default).
+    """
     global _current_ingestion
     total_days = (fecha_hasta - fecha_desde).days + 1
     _current_ingestion = {
@@ -85,6 +88,8 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
     }
 
     all_dates = [fecha_desde + timedelta(days=i) for i in range(total_days)]
+    if reverse:
+        all_dates.reverse()
 
     try:
         # Process in batches: prefetch+parse in parallel, then write to DB sequentially
@@ -182,6 +187,15 @@ async def _store_date_results(fecha: date, sumario, all_parsed: list):
             log.status = "completed"
             log.completed_at = datetime.utcnow()
             await db.commit()
+
+            # Generate alerts for watched companies
+            try:
+                from app.services.watchlist_service import generate_alerts_for_date
+                alerts_count = await generate_alerts_for_date(fecha, db)
+                if alerts_count:
+                    logger.info(f"Generated {alerts_count} alerts for {fecha}")
+            except Exception as e:
+                logger.warning(f"Alert generation failed for {fecha}: {e}")
 
             logger.info(
                 f"Ingested {fecha}: {companies_new} new, "
