@@ -25,10 +25,11 @@ logger = logging.getLogger(__name__)
 # Global state for tracking current ingestion
 _current_ingestion: Optional[dict] = None
 
-# Concurrency: fetch + parse N dates at once, write to DB sequentially
-# Keep PREFETCH low to avoid 503s from BOE (rate limiting)
-PREFETCH_AHEAD = 2
+# Conservative concurrency to avoid BOE rate limiting
+# Process 1 date at a time, parse PDFs in parallel, pause between dates
+PREFETCH_AHEAD = 1
 PDF_PARSE_WORKERS = 4
+PAUSE_BETWEEN_DATES = 2  # seconds between dates to be polite
 
 
 def get_ingestion_status() -> dict:
@@ -125,6 +126,10 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
                 await _store_date_results(fecha, sumario, all_parsed)
 
             _current_ingestion["processed"] += len(batch)
+
+            # Polite pause between date batches to avoid rate limiting
+            if PAUSE_BETWEEN_DATES > 0:
+                await asyncio.sleep(PAUSE_BETWEEN_DATES)
     finally:
         _current_ingestion = {"is_running": False}
 
