@@ -1,14 +1,16 @@
-"""Orchestrate the full BORME ingestion pipeline."""
+"""Orchestrate the full BORME ingestion pipeline.
+
+Optimized for speed: parallel downloads + parsing, sequential DB writes.
+"""
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from concurrent.futures import ProcessPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import async_session
@@ -17,24 +19,58 @@ from app.services.borme_fetcher import BormePdfEntry, fetch_sumario
 from app.services.borme_parser import ParsedCompany, parse_borme_pdf
 from app.services.data_normalizer import normalize_company
 from app.services.pdf_downloader import download_pdfs
-from app.utils.text_clean import normalize_name
 
 logger = logging.getLogger(__name__)
 
 # Global state for tracking current ingestion
 _current_ingestion: Optional[dict] = None
 
-# Concurrency settings
-DATE_BATCH_SIZE = 5  # Process 5 dates in parallel
-PDF_PARSE_WORKERS = 6  # Parse 6 PDFs in parallel
+# Concurrency: fetch + parse N dates at once, write to DB sequentially
+PREFETCH_AHEAD = 5
+PDF_PARSE_WORKERS = 6
 
 
 def get_ingestion_status() -> dict:
     return _current_ingestion or {"is_running": False}
 
 
+async def _fetch_and_parse(fecha: date):
+    """Fetch sumario, download PDFs, and parse them. Returns parsed data (no DB writes)."""
+    sumario = await fetch_sumario(fecha)
+    if sumario is None or not sumario.pdfs:
+        return fecha, None, []
+
+    fecha_str = fecha.strftime("%Y%m%d")
+    downloaded = await download_pdfs(sumario.pdfs, fecha_str)
+
+    # Parse PDFs in parallel using thread pool (CPU-bound)
+    loop = asyncio.get_running_loop()
+    sem = asyncio.Semaphore(PDF_PARSE_WORKERS)
+
+    async def parse_one(entry, pdf_path):
+        async with sem:
+            parsed = await loop.run_in_executor(None, parse_borme_pdf, pdf_path)
+        return entry, parsed
+
+    parse_results = await asyncio.gather(
+        *[parse_one(e, p) for e, p in downloaded],
+        return_exceptions=True,
+    )
+
+    all_parsed = []
+    for pr in parse_results:
+        if isinstance(pr, Exception):
+            logger.error(f"PDF parse error for {fecha}: {pr}")
+            continue
+        entry, companies = pr
+        for c in companies:
+            all_parsed.append((entry, c))
+
+    return fecha, sumario, all_parsed
+
+
 async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
-    """Ingest BORME data for a range of dates, processing in parallel batches."""
+    """Ingest BORME data for a range of dates with prefetch pipeline."""
     global _current_ingestion
     total_days = (fecha_hasta - fecha_desde).days + 1
     _current_ingestion = {
@@ -46,111 +82,94 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date):
         "total": total_days,
     }
 
-    # Build list of all dates
     all_dates = [fecha_desde + timedelta(days=i) for i in range(total_days)]
 
     try:
-        # Process in batches of DATE_BATCH_SIZE
-        for i in range(0, len(all_dates), DATE_BATCH_SIZE):
-            batch = all_dates[i : i + DATE_BATCH_SIZE]
+        # Process in batches: prefetch+parse in parallel, then write to DB sequentially
+        for i in range(0, len(all_dates), PREFETCH_AHEAD):
+            batch = all_dates[i : i + PREFETCH_AHEAD]
             _current_ingestion["current_date"] = f"{batch[0]} .. {batch[-1]}"
 
-            # Run batch in parallel
-            results = await asyncio.gather(
-                *[ingest_single_date(d) for d in batch],
+            # Filter out already-completed dates before fetching
+            dates_to_fetch = []
+            async with async_session() as db:
+                for d in batch:
+                    existing = await db.scalar(
+                        select(IngestionLog.status).where(
+                            IngestionLog.fecha_borme == d
+                        )
+                    )
+                    if existing == "completed":
+                        logger.info(f"Date {d} already ingested, skipping.")
+                    else:
+                        dates_to_fetch.append(d)
+
+            if not dates_to_fetch:
+                _current_ingestion["processed"] += len(batch)
+                continue
+
+            # Prefetch + parse all dates in parallel (network + CPU, no DB)
+            fetch_results = await asyncio.gather(
+                *[_fetch_and_parse(d) for d in dates_to_fetch],
                 return_exceptions=True,
             )
 
-            # Log any errors but don't stop
-            for d, r in zip(batch, results):
-                if isinstance(r, Exception):
-                    logger.error(f"Batch ingestion failed for {d}: {r}")
+            # Now write to DB sequentially (SQLite safe)
+            for fr in fetch_results:
+                if isinstance(fr, Exception):
+                    logger.error(f"Fetch/parse batch error: {fr}")
+                    continue
+
+                fecha, sumario, all_parsed = fr
+                await _store_date_results(fecha, sumario, all_parsed)
 
             _current_ingestion["processed"] += len(batch)
     finally:
         _current_ingestion = {"is_running": False}
 
 
-async def ingest_single_date(fecha: date):
-    """Full pipeline for one date."""
+async def _store_date_results(fecha: date, sumario, all_parsed: list):
+    """Write all results for one date to DB (sequential, SQLite-safe)."""
     async with async_session() as db:
-        # Check if already processed
-        existing = await db.scalar(
-            select(IngestionLog.id).where(
-                IngestionLog.fecha_borme == fecha,
-                IngestionLog.status == "completed",
-            )
+        # Get or create ingestion log
+        log = await db.scalar(
+            select(IngestionLog).where(IngestionLog.fecha_borme == fecha)
         )
-        if existing:
-            logger.info(f"Date {fecha} already ingested, skipping.")
+        if log and log.status == "completed":
             return
-
-        # Create or update ingestion log
-        log = IngestionLog(
-            fecha_borme=fecha,
-            status="fetching",
-            started_at=datetime.utcnow(),
-        )
-        db.add(log)
+        if log:
+            log.status = "storing"
+            log.started_at = datetime.utcnow()
+            log.error_message = None
+        else:
+            log = IngestionLog(
+                fecha_borme=fecha,
+                status="storing",
+                started_at=datetime.utcnow(),
+            )
+            db.add(log)
         await db.commit()
         await db.refresh(log)
 
         try:
-            # Step 1: Fetch sumario
-            sumario = await fetch_sumario(fecha)
-            if sumario is None or not sumario.pdfs:
+            if sumario is None:
                 log.status = "completed"
                 log.completed_at = datetime.utcnow()
                 log.error_message = "No BORME published this date"
                 await db.commit()
                 return
 
-            log.pdfs_found = len(sumario.pdfs)
-            log.status = "downloading"
-            await db.commit()
-
-            # Step 2: Download PDFs
-            fecha_str = fecha.strftime("%Y%m%d")
-            downloaded = await download_pdfs(sumario.pdfs, fecha_str)
-            log.pdfs_downloaded = len(downloaded)
-            log.status = "parsing"
-            await db.commit()
-
-            # Step 3: Parse PDFs in parallel (CPU-bound, use thread pool)
+            log.pdfs_found = len(sumario.pdfs) if sumario.pdfs else 0
             companies_new = 0
             companies_updated = 0
             acts_created = 0
-            pdfs_parsed = 0
 
-            loop = asyncio.get_running_loop()
-            parse_sem = asyncio.Semaphore(PDF_PARSE_WORKERS)
+            for entry, parsed in all_parsed:
+                result = await _store_company(db, parsed, entry, fecha)
+                companies_new += result["new"]
+                companies_updated += result["updated"]
+                acts_created += result["acts"]
 
-            async def parse_one(entry_path_pair):
-                entry, pdf_path = entry_path_pair
-                async with parse_sem:
-                    parsed = await loop.run_in_executor(
-                        None, parse_borme_pdf, pdf_path
-                    )
-                return entry, parsed
-
-            parse_tasks = [parse_one(ep) for ep in downloaded]
-            parse_results = await asyncio.gather(*parse_tasks, return_exceptions=True)
-
-            for pr in parse_results:
-                if isinstance(pr, Exception):
-                    logger.error(f"PDF parse error: {pr}")
-                    continue
-                entry, parsed_companies = pr
-                if parsed_companies:
-                    pdfs_parsed += 1
-
-                for parsed in parsed_companies:
-                    result = await _store_company(db, parsed, entry, fecha)
-                    companies_new += result["new"]
-                    companies_updated += result["updated"]
-                    acts_created += result["acts"]
-
-            log.pdfs_parsed = pdfs_parsed
             log.companies_new = companies_new
             log.companies_updated = companies_updated
             log.acts_created = acts_created
@@ -169,7 +188,12 @@ async def ingest_single_date(fecha: date):
             log.completed_at = datetime.utcnow()
             await db.commit()
             logger.error(f"Ingestion failed for {fecha}: {e}")
-            raise
+
+
+async def ingest_single_date(fecha: date):
+    """Full pipeline for one date (used by scheduler)."""
+    fecha_data, sumario, all_parsed = await _fetch_and_parse(fecha)
+    await _store_date_results(fecha, sumario, all_parsed)
 
 
 async def _store_company(
@@ -204,13 +228,11 @@ async def _store_company(
             existing.fecha_constitucion = normalized["fecha_constitucion"]
         if normalized["localidad"] and not existing.localidad:
             existing.localidad = normalized["localidad"]
-        # Always update ultima publicacion and estado
         existing.fecha_ultima_publicacion = fecha
         existing.estado = normalized["estado"]
         company = existing
         result["updated"] = 1
     else:
-        # Create new company
         company = Company(**normalized)
         db.add(company)
         await db.flush()
@@ -218,7 +240,6 @@ async def _store_company(
 
     # Store acts
     for parsed_act in parsed.actos:
-        # Check for duplicate
         existing_act = await db.scalar(
             select(Act.id).where(
                 Act.company_id == company.id,
