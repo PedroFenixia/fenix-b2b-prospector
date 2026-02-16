@@ -34,7 +34,7 @@
                     {% else %}-{% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-700 font-mono text-xs">
-                    {% if t.importe_estimado %}{{ "{:,.0f}".format(t.importe_estimado) }}&euro;{% else %}-{% endif %}
+                    {% if t.importe_estimado %}{{ t.importe_estimado|eu }}&euro;{% else %}-{% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ t.fecha_publicacion }}</td>
                 <td class="py-3 px-4">

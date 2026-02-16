@@ -1,6 +1,6 @@
 <!-- Search results partial (HTMX swappable) -->
 <div class="flex items-center justify-between mb-3">
-    <p class="text-sm text-gray-500"><span class="font-bold text-gray-900 font-mono">{{ "{:,}".format(total) }}</span> empresas encontradas</p>
+    <p class="text-sm text-gray-500"><span class="font-bold text-gray-900 font-mono">{{ total|eu }}</span> empresas encontradas</p>
     <p class="text-xs text-gray-400">Pagina {{ page }} de {{ pages }}</p>
 </div>
 
@@ -36,7 +36,7 @@
                     {% else %}-{% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-700 font-mono text-xs">
-                    {% if company.capital_social %}{{ "{:,.0f}".format(company.capital_social) }}&euro;{% else %}-{% endif %}
+                    {% if company.capital_social %}{{ company.capital_social|eu }}&euro;{% else %}-{% endif %}
                 </td>
                 <td class="py-3 px-4">
                     {% if company.estado == 'activa' %}

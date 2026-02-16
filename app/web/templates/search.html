@@ -116,6 +116,28 @@
                 </select>
             </div>
 
+            <!-- Fecha publicacion desde -->
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Publicacion desde</label>
+                <input type="date" name="pub_desde"
+                       class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                       hx-get="/search/results"
+                       hx-trigger="change"
+                       hx-target="#results"
+                       hx-include="#search-form">
+            </div>
+
+            <!-- Fecha publicacion hasta -->
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Publicacion hasta</label>
+                <input type="date" name="pub_hasta"
+                       class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                       hx-get="/search/results"
+                       hx-trigger="change"
+                       hx-target="#results"
+                       hx-include="#search-form">
+            </div>
+
             <!-- Sort -->
             <div>
                 <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Ordenar por</label>

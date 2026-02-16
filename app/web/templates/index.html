@@ -13,27 +13,27 @@
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Empresas</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ "{:,}".format(stats.total_companies) }}</p>
+            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_companies|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Actos</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ "{:,}".format(stats.total_acts) }}</p>
+            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_acts|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Cargos</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ "{:,}".format(stats.total_officers) }}</p>
+            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_officers|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Subvenciones</p>
-            <p class="text-2xl font-extrabold text-purple-600 mt-1 font-mono">{{ "{:,}".format(stats.total_subsidies) }}</p>
+            <p class="text-2xl font-extrabold text-purple-600 mt-1 font-mono">{{ stats.total_subsidies|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Licitaciones</p>
-            <p class="text-2xl font-extrabold text-cyan-600 mt-1 font-mono">{{ "{:,}".format(stats.total_tenders) }}</p>
+            <p class="text-2xl font-extrabold text-cyan-600 mt-1 font-mono">{{ stats.total_tenders|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Judiciales</p>
-            <p class="text-2xl font-extrabold text-amber-600 mt-1 font-mono">{{ "{:,}".format(stats.total_judicial|default(0)) }}</p>
+            <p class="text-2xl font-extrabold text-amber-600 mt-1 font-mono">{{ stats.total_judicial|default(0)|eu }}</p>
         </div>
         <div class="card p-5">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Dias BORME</p>
@@ -80,7 +80,7 @@
                         </div>
                         {% if company.capital %}
                         <span class="text-xs font-semibold text-brand-500 bg-brand-50 px-2.5 py-1 rounded-full font-mono">
-                            {{ "{:,.0f}".format(company.capital) }}&euro;
+                            {{ company.capital|eu }}&euro;
                         </span>
                         {% endif %}
                     </div>

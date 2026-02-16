@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 _current_ingestion: Optional[dict] = None
 
 # Concurrency: fetch + parse N dates at once, write to DB sequentially
-PREFETCH_AHEAD = 5
-PDF_PARSE_WORKERS = 6
+# Keep PREFETCH low to avoid 503s from BOE (rate limiting)
+PREFETCH_AHEAD = 2
+PDF_PARSE_WORKERS = 4
 
 
 def get_ingestion_status() -> dict:

@@ -32,7 +32,7 @@
             {% if company.capital_social %}
             <div class="text-right">
                 <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Capital social</p>
-                <p class="text-xl font-extrabold text-brand-500 font-mono">{{ "{:,.0f}".format(company.capital_social) }}&euro;</p>
+                <p class="text-xl font-extrabold text-brand-500 font-mono">{{ company.capital_social|eu }}&euro;</p>
             </div>
             {% endif %}
         </div>

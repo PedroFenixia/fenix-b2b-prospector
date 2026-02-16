@@ -40,18 +40,29 @@ async def download_pdfs(
                 return (entry, local_path)
 
             async with semaphore:
-                try:
-                    resp = await client.get(entry.url_pdf)
-                    if resp.status_code == 200:
-                        local_path.write_bytes(resp.content)
-                        logger.info(f"Downloaded: {filename} ({len(resp.content)} bytes)")
-                        return (entry, local_path)
-                    else:
-                        logger.warning(f"Failed to download {entry.url_pdf}: HTTP {resp.status_code}")
+                for attempt in range(3):
+                    try:
+                        resp = await client.get(entry.url_pdf)
+                        if resp.status_code == 200:
+                            local_path.write_bytes(resp.content)
+                            logger.info(f"Downloaded: {filename} ({len(resp.content)} bytes)")
+                            return (entry, local_path)
+                        elif resp.status_code == 503:
+                            wait = 5 * (attempt + 1)
+                            logger.warning(f"503 for {filename}, retry in {wait}s (attempt {attempt+1}/3)")
+                            await asyncio.sleep(wait)
+                            continue
+                        else:
+                            logger.warning(f"Failed to download {entry.url_pdf}: HTTP {resp.status_code}")
+                            return None
+                    except Exception as e:
+                        logger.error(f"Error downloading {entry.url_pdf}: {e}")
+                        if attempt < 2:
+                            await asyncio.sleep(3)
+                            continue
                         return None
-                except Exception as e:
-                    logger.error(f"Error downloading {entry.url_pdf}: {e}")
-                    return None
+                logger.warning(f"Giving up on {filename} after 3 attempts")
+                return None
 
         tasks = [download_one(entry) for entry in pdfs]
         completed = await asyncio.gather(*tasks)

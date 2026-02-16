@@ -34,11 +34,13 @@ def normalize_province(raw: str) -> str | None:
         for p in _load():
             name = p["nombre"]
             _BORME_PROVINCE_MAP[name.upper()] = name
-        # Common BORME variations
+        # Common BORME variations (bilingual names, abbreviations)
         _BORME_PROVINCE_MAP.update({
             "ALAVA": "Álava",
             "ARABA": "Álava",
+            "ARABA/ÁLAVA": "Álava",
             "BIZKAIA": "Vizcaya",
+            "BIZCAIA": "Vizcaya",
             "GIPUZKOA": "Guipúzcoa",
             "GUIPUZCOA": "Guipúzcoa",
             "ILLES BALEARS": "Baleares",
@@ -55,6 +57,18 @@ def normalize_province(raw: str) -> str | None:
             "S.C. TENERIFE": "Santa Cruz de Tenerife",
             "SC TENERIFE": "Santa Cruz de Tenerife",
             "LAS PALMAS": "Las Palmas",
+            # Bilingual BORME names
+            "ALICANTE/ALACANT": "Alicante",
+            "ALICANTE": "Alicante",
+            "ALACANT": "Alicante",
+            "VALENCIA/VALÈNCIA": "Valencia",
+            "VALENCIA": "Valencia",
+            "VALÈNCIA": "Valencia",
+            "CASTELLÓN/CASTELLÓ": "Castellón",
+            "CASTELLON": "Castellón",
+            "CASTELLÓ": "Castellón",
+            "NAVARRA": "Navarra",
+            "NAFARROA": "Navarra",
         })
 
     return _BORME_PROVINCE_MAP.get(raw.strip().upper())

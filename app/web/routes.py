@@ -26,6 +26,24 @@ from app.utils.provinces import get_all_provinces
 templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
+
+def _format_eu(value):
+    """Format number with European convention: 1.234.567,89"""
+    if value is None:
+        return "-"
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return str(value)
+    if value == int(value):
+        formatted = f"{int(value):,}".replace(",", ".")
+    else:
+        formatted = f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return formatted
+
+
+templates.env.filters["eu"] = _format_eu
+
 web_router = APIRouter()
 
 
@@ -102,6 +120,8 @@ async def search_results(
     forma_juridica: str | None = None,
     cnae_code: str | None = None,
     estado: str | None = None,
+    pub_desde: str | None = None,
+    pub_hasta: str | None = None,
     sort_by: str = "fecha_ultima_publicacion",
     sort_order: str = "desc",
     page: int = 1,
@@ -110,8 +130,9 @@ async def search_results(
 ):
     filters = SearchFilters(
         q=q, cif=cif, provincia=provincia, forma_juridica=forma_juridica,
-        cnae_code=cnae_code, estado=estado, sort_by=sort_by,
-        sort_order=sort_order, page=page, per_page=per_page,
+        cnae_code=cnae_code, estado=estado,
+        pub_desde=pub_desde or None, pub_hasta=pub_hasta or None,
+        sort_by=sort_by, sort_order=sort_order, page=page, per_page=per_page,
     )
     result = await search_companies(filters, db)
     return templates.TemplateResponse("partials/company_table.html", {
