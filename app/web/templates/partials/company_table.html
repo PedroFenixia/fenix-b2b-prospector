@@ -32,6 +32,7 @@
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Forma</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Capital</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Estado</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Score</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Publicaci&oacute;n</th>
             </tr>
         </thead>
@@ -65,6 +66,17 @@
                     {% else %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ company.estado }}</span>
                     {% endif %}
+                </td>
+                <td class="py-3 px-4">
+                    {% if company.score_solvencia is not none %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold
+                        {% if company.score_solvencia >= 76 %}bg-green-50 text-green-600 border border-green-100
+                        {% elif company.score_solvencia >= 51 %}bg-yellow-50 text-yellow-600 border border-yellow-100
+                        {% elif company.score_solvencia >= 26 %}bg-orange-50 text-orange-500 border border-orange-100
+                        {% else %}bg-red-50 text-red-600 border border-red-100{% endif %}">
+                        {{ company.score_solvencia }}
+                    </span>
+                    {% else %}<span class="text-gray-300 text-xs">-</span>{% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ company.fecha_ultima_publicacion }}</td>
             </tr>

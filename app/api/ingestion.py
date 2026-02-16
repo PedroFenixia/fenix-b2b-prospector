@@ -144,3 +144,28 @@ async def web_stats(db: AsyncSession = Depends(get_db)):
     """Get web enrichment coverage statistics."""
     from app.services.web_enrichment import count_web_coverage
     return await count_web_coverage(db)
+
+
+@router.post("/score-batch")
+async def score_batch_endpoint(
+    background_tasks: BackgroundTasks,
+    limit: int = 500,
+):
+    """Score a batch of companies for solvency."""
+    from app.services.scoring_service import score_batch
+
+    async def _run_scoring():
+        from app.db.engine import async_session
+        async with async_session() as session:
+            result = await score_batch(session, limit=limit)
+            return result
+
+    background_tasks.add_task(_run_scoring)
+    return {"message": f"Scoring started (batch of {limit})"}
+
+
+@router.get("/score-stats")
+async def score_stats(db: AsyncSession = Depends(get_db)):
+    """Get solvency score coverage statistics."""
+    from app.services.scoring_service import get_score_stats
+    return await get_score_stats(db)

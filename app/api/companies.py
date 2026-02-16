@@ -62,6 +62,16 @@ async def enrich_company_web(company_id: int, db: AsyncSession = Depends(get_db)
     return result
 
 
+@router.post("/{company_id}/score")
+async def compute_company_score(company_id: int, db: AsyncSession = Depends(get_db)):
+    """Compute solvency score for a company."""
+    from app.services.scoring_service import score_company
+    score = await score_company(company_id, db)
+    if score is None:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    return {"score": score}
+
+
 @router.get("/{company_id}/acts", response_model=list[ActOut])
 async def read_company_acts(company_id: int, db: AsyncSession = Depends(get_db)):
     return await get_company_acts(company_id, db)

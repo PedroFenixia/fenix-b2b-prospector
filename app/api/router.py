@@ -7,6 +7,7 @@ from app.api.opportunities import router as opportunities_router
 from app.api.search import router as search_router
 from app.api.stats import router as stats_router
 from app.api.watchlist import router as watchlist_router
+from app.api.billing import router as billing_router
 
 api_router = APIRouter()
 api_router.include_router(companies_router, prefix="/companies", tags=["companies"])
@@ -16,3 +17,4 @@ api_router.include_router(export_router, prefix="/export", tags=["export"])
 api_router.include_router(ingestion_router, prefix="/ingestion", tags=["ingestion"])
 api_router.include_router(stats_router, prefix="/stats", tags=["stats"])
 api_router.include_router(watchlist_router, prefix="/watchlist", tags=["watchlist"])
+api_router.include_router(billing_router, prefix="/billing", tags=["billing"])

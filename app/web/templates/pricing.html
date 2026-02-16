@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precios - FENIX B2B Prospector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: {
+                        brand: { 50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 500: '#dc2626', 600: '#b91c1c', 700: '#991b1b', 800: '#7f1d1d' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; letter-spacing: -.01em; }
+        ::selection { background: #dc2626; color: #fff; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 font-sans text-gray-300 flex flex-col">
+    <!-- Header -->
+    <nav class="border-b border-gray-800">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="/" class="text-xl font-extrabold text-white tracking-tight">
+                <span class="text-brand-500">FENIX</span> B2B Prospector
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="/login" class="text-sm text-gray-400 hover:text-white transition font-medium">Iniciar sesion</a>
+                <a href="/register" class="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition">Registrate gratis</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 py-16 px-6">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-3">Precios</p>
+                <h1 class="text-4xl font-extrabold text-white tracking-tight">El plan perfecto para tu negocio</h1>
+                <p class="text-gray-400 mt-3 max-w-xl mx-auto">Accede a +1 millon de empresas del BORME, subvenciones del BOE y licitaciones publicas.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Free -->
+                <div class="bg-gray-800 rounded-2xl border border-gray-700/50 p-8 flex flex-col">
+                    <h3 class="text-lg font-bold text-white">Free</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-extrabold text-white">0&euro;</span>
+                        <span class="text-gray-500 text-sm">/mes</span>
+                    </div>
+                    <ul class="space-y-3 text-sm flex-1">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            50 busquedas/mes
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            5 exportaciones/mes
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            10 empresas en vigilancia
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-gray-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span class="text-gray-500">Scoring de solvencia</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-gray-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span class="text-gray-500">Enriquecimiento de datos</span>
+                        </li>
+                    </ul>
+                    <a href="/register"
+                       class="mt-8 block text-center py-3 border border-gray-600 text-white rounded-xl font-semibold text-sm hover:bg-gray-700 transition">
+                        Empezar gratis
+                    </a>
+                </div>
+
+                <!-- Pro (highlighted) -->
+                <div class="bg-gray-800 rounded-2xl border-2 border-brand-500 p-8 flex flex-col relative">
+                    <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-brand-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">Popular</div>
+                    <h3 class="text-lg font-bold text-white">Pro</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-extrabold text-white">29&euro;</span>
+                        <span class="text-gray-500 text-sm">/mes</span>
+                    </div>
+                    <ul class="space-y-3 text-sm flex-1">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Busquedas ilimitadas
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            50 exportaciones/mes
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            100 empresas en vigilancia
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Scoring de solvencia
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Enriquecimiento de datos
+                        </li>
+                    </ul>
+                    <a href="/register"
+                       class="mt-8 block text-center py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(220,38,38,.3)]">
+                        Empezar con Pro
+                    </a>
+                </div>
+
+                <!-- Enterprise -->
+                <div class="bg-gray-800 rounded-2xl border border-gray-700/50 p-8 flex flex-col">
+                    <h3 class="text-lg font-bold text-white">Enterprise</h3>
+                    <div class="mt-4 mb-6">
+                        <span class="text-4xl font-extrabold text-white">79&euro;</span>
+                        <span class="text-gray-500 text-sm">/mes</span>
+                    </div>
+                    <ul class="space-y-3 text-sm flex-1">
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Busquedas ilimitadas
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Exportaciones ilimitadas
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Watchlist ilimitada
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Scoring + Enriquecimiento
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Acceso API
+                        </li>
+                    </ul>
+                    <a href="/register"
+                       class="mt-8 block text-center py-3 border border-gray-600 text-white rounded-xl font-semibold text-sm hover:bg-gray-700 transition">
+                        Empezar con Enterprise
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-12 text-center text-sm text-gray-500">
+                <p>Todos los planes incluyen acceso a +1M empresas del BORME, subvenciones y licitaciones.</p>
+                <p class="mt-1">Cancela cuando quieras. Sin permanencia.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-8 px-6 border-t border-gray-800">
+        <div class="max-w-5xl mx-auto">
+            <p class="text-center text-gray-600 text-xs">&copy; 2026 FENIX IA SOLUTIONS &mdash; fenixia.tech &mdash; Todos los derechos reservados</p>
+        </div>
+    </footer>
+</body>
+</html>

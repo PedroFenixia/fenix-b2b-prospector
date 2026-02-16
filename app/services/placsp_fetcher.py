@@ -17,8 +17,8 @@ from lxml import etree
 logger = logging.getLogger(__name__)
 
 # ATOM feed URLs
-PLACSP_FEED_URL = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilContratanteComplworte3.atom"
-PLACSP_RECENT_URL = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilContratanteComplworte3.atom"
+PLACSP_FEED_URL = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
+PLACSP_RECENT_URL = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
 
 # XML namespaces used in PLACSP ATOM feeds
 NS = {
@@ -36,7 +36,7 @@ async def fetch_recent_tenders(max_entries: int = 100) -> list[dict]:
     """
     logger.info("Fetching PLACSP recent tenders feed")
 
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, verify=False) as client:
         resp = await client.get(
             PLACSP_FEED_URL,
             headers={"Accept": "application/atom+xml, application/xml, text/xml"},
@@ -60,7 +60,7 @@ async def fetch_tenders_by_search(
 
     Uses the public search endpoint to find specific tenders.
     """
-    search_url = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilContratanteComplworte3.atom"
+    search_url = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
     params = {}
     if keyword:
         params["lici_nombre"] = keyword
@@ -69,7 +69,7 @@ async def fetch_tenders_by_search(
 
     logger.info(f"Searching PLACSP tenders: keyword={keyword}, tipo={tipo_contrato}")
 
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, verify=False) as client:
         resp = await client.get(
             search_url,
             params=params,

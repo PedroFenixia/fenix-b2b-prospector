@@ -27,9 +27,16 @@ class Settings(BaseSettings):
     apiempresas_key: str = ""
 
     # Auth
-    admin_user: str = "admin"
-    admin_password: str = "fenix2024"
+    admin_password: str = "FenixIA360!"
+    demo_password: str = "fenixiaprospector"
     secret_key: str = "fenix-b2b-secret-change-me-in-production"
+
+    # Stripe
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro: str = ""  # price_xxx for Pro plan
+    stripe_price_enterprise: str = ""  # price_xxx for Enterprise plan
+    app_url: str = "https://b2b.fenixia.tech"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

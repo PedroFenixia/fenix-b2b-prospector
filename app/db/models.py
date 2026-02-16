@@ -21,6 +21,36 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    """Usuarios del sistema."""
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    nombre: Mapped[str] = mapped_column(Text, nullable=False)
+    empresa: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(Text, default="user")  # admin, user
+    plan: Mapped[str] = mapped_column(Text, default="free")  # free, pro, enterprise
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Integer, default=True)
+    searches_this_month: Mapped[int] = mapped_column(Integer, default=0)
+    exports_this_month: Mapped[int] = mapped_column(Integer, default=0)
+    month_reset: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # YYYY-MM
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_users_email", "email"),
+        Index("idx_users_plan", "plan"),
+    )
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -42,6 +72,8 @@ class Company(Base):
     telefono: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     web: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     estado: Mapped[str] = mapped_column(Text, default="activa")
+    score_solvencia: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    score_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -240,6 +272,7 @@ class Watchlist(Base):
     __tablename__ = "watchlist"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
     tipos_acto: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON list or null=all
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -250,8 +283,8 @@ class Watchlist(Base):
     company: Mapped[Company] = relationship()
 
     __table_args__ = (
-        UniqueConstraint("company_id", name="uq_watchlist_company"),
         Index("idx_watchlist_company", "company_id"),
+        Index("idx_watchlist_user", "user_id"),
     )
 
 
@@ -260,6 +293,7 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
     act_id: Mapped[Optional[int]] = mapped_column(ForeignKey("acts.id", ondelete="SET NULL"), nullable=True)
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
@@ -275,6 +309,7 @@ class Alert(Base):
 
     __table_args__ = (
         Index("idx_alerts_company", "company_id"),
+        Index("idx_alerts_user", "user_id"),
         Index("idx_alerts_leida", "leida"),
         Index("idx_alerts_created", "created_at"),
     )
@@ -284,6 +319,7 @@ class ExportLog(Base):
     __tablename__ = "export_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     filename: Mapped[str] = mapped_column(Text, nullable=False)
     format: Mapped[str] = mapped_column(Text, nullable=False)
     filters_applied: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <div>
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Cuenta</p>
+        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Mi cuenta</h1>
+    </div>
+
+    <!-- Profile card -->
+    <div class="card p-6 space-y-4">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full bg-brand-50 flex items-center justify-center text-brand-500 font-bold text-xl">
+                {{ db_user.email[0]|upper }}
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-gray-900">{{ db_user.nombre }}</h2>
+                <p class="text-sm text-gray-500">{{ db_user.email }}</p>
+                {% if db_user.empresa %}
+                <p class="text-sm text-gray-400">{{ db_user.empresa }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+            <div>
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Rol</p>
+                <p class="text-sm font-medium text-gray-700 capitalize">{{ db_user.role }}</p>
+            </div>
+            <div>
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Miembro desde</p>
+                <p class="text-sm font-medium text-gray-700">{{ db_user.created_at.strftime('%d/%m/%Y') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan card -->
+    <div class="card p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-900">Tu plan</h3>
+            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                {% if db_user.plan == 'enterprise' %}bg-purple-100 text-purple-700
+                {% elif db_user.plan == 'pro' %}bg-amber-100 text-amber-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ db_user.plan }}
+            </span>
+        </div>
+
+        {% if plan_limits %}
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Busquedas/mes</p>
+                <p class="text-lg font-bold text-gray-900">
+                    {% if plan_limits.searches == -1 %}Ilimitado{% else %}{{ db_user.searches_this_month }}/{{ plan_limits.searches }}{% endif %}
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Exports/mes</p>
+                <p class="text-lg font-bold text-gray-900">
+                    {% if plan_limits.exports == -1 %}Ilimitado{% else %}{{ db_user.exports_this_month }}/{{ plan_limits.exports }}{% endif %}
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Watchlist</p>
+                <p class="text-lg font-bold text-gray-900">
+                    {% if plan_limits.watchlist == -1 %}Ilimitado{% else %}{{ plan_limits.watchlist }}{% endif %}
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Scoring</p>
+                <p class="text-lg font-bold {% if plan_limits.scoring %}text-green-600{% else %}text-gray-400{% endif %}">
+                    {% if plan_limits.scoring %}Activo{% else %}No incluido{% endif %}
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Enriquecimiento</p>
+                <p class="text-lg font-bold {% if plan_limits.enrichment %}text-green-600{% else %}text-gray-400{% endif %}">
+                    {% if plan_limits.enrichment %}Activo{% else %}No incluido{% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if db_user.plan == 'free' %}
+        <div class="pt-2">
+            <a href="/pricing"
+               class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(220,38,38,.2)]">
+                Mejorar plan
+            </a>
+        </div>
+        {% elif db_user.stripe_subscription_id %}
+        <div class="pt-2">
+            <a href="/api/billing/portal"
+               class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition">
+                Gestionar suscripcion en Stripe
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

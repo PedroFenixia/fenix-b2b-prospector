@@ -138,6 +138,22 @@
                        hx-include="#search-form">
             </div>
 
+            <!-- Score minimo -->
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Score minimo</label>
+                <select name="score_min"
+                        class="w-full rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                        hx-get="/search/results"
+                        hx-trigger="change"
+                        hx-target="#results"
+                        hx-include="#search-form">
+                    <option value="">Sin filtro</option>
+                    <option value="76">Muy fiable (76+)</option>
+                    <option value="51">Fiable (51+)</option>
+                    <option value="26">Riesgo moderado (26+)</option>
+                </select>
+            </div>
+
             <!-- Sort -->
             <div>
                 <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Ordenar por</label>
@@ -148,6 +164,7 @@
                         hx-target="#results"
                         hx-include="#search-form">
                     <option value="fecha_ultima_publicacion">Fecha publicacion</option>
+                    <option value="score_solvencia">Score solvencia</option>
                     <option value="nombre">Nombre</option>
                     <option value="capital_social">Capital social</option>
                     <option value="provincia">Provincia</option>

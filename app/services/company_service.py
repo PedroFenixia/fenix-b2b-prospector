@@ -61,6 +61,9 @@ async def search_companies(filters: SearchFilters, db: AsyncSession) -> dict:
     if filters.capital_max is not None:
         query = query.where(Company.capital_social <= filters.capital_max)
 
+    if filters.score_min is not None:
+        query = query.where(Company.score_solvencia >= filters.score_min)
+
     if filters.tipo_acto:
         query = query.join(Act).where(Act.tipo_acto == filters.tipo_acto)
 
@@ -75,6 +78,7 @@ async def search_companies(filters: SearchFilters, db: AsyncSession) -> dict:
         "fecha_ultima_publicacion": Company.fecha_ultima_publicacion,
         "capital_social": Company.capital_social,
         "provincia": Company.provincia,
+        "score_solvencia": Company.score_solvencia,
     }
     sort_col = sort_columns.get(filters.sort_by, Company.fecha_ultima_publicacion)
     if filters.sort_order == "asc":

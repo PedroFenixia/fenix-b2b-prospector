@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.auth import is_authenticated
+from app.auth import get_current_user
 from app.config import settings
 from app.db.engine import engine
 from app.db.models import Base
@@ -22,6 +22,12 @@ async def lifespan(app: FastAPI):
     # Seed reference data
     from app.db.seed_cnae import seed_all
     await seed_all()
+
+    # Seed default users (admin + demo)
+    from app.db.engine import async_session
+    from app.auth import seed_default_users
+    async with async_session() as db:
+        await seed_default_users(db)
 
     # Start daily scheduler
     if settings.scheduler_enabled:
@@ -41,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FENIX Prospector",
     description="Lead prospecting from Spanish public registries (BOE/BORME)",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -62,19 +68,32 @@ from app.web.routes import web_router  # noqa: E402
 app.include_router(web_router)
 
 
+# Public paths that don't require auth
+PUBLIC_PATHS = ["/login", "/register", "/health", "/static/", "/favicon.ico", "/pricing",
+                "/api/billing/webhook"]
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Protect all web routes except login, health, static, and API."""
+    """Protect all routes. Extract user info into request.state."""
     path = request.url.path
 
     # Allow public paths
-    public = ["/login", "/health", "/static/", "/api/", "/favicon.ico"]
-    if any(path.startswith(p) for p in public):
+    if any(path.startswith(p) for p in PUBLIC_PATHS):
+        request.state.user = None
         return await call_next(request)
 
-    if not is_authenticated(request):
+    # Check auth
+    user_data = get_current_user(request)
+    if not user_data:
+        # API routes return 401, web routes redirect
+        if path.startswith("/api/"):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": "No autenticado"}, status_code=401)
         return RedirectResponse(url="/login", status_code=302)
 
+    # Inject user into request state
+    request.state.user = user_data
     return await call_next(request)
 
 

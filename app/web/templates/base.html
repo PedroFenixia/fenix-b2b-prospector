@@ -71,7 +71,18 @@
                         </a>
                     </div>
                 </div>
-                <a href="/logout" class="text-sm text-gray-400 hover:text-red-500 transition font-medium">Salir</a>
+                <div class="flex items-center gap-3">
+                    {% if user %}
+                    <a href="/account" class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-500 font-bold text-xs">{{ user.email[0]|upper }}</span>
+                        <span class="hidden sm:inline font-medium">{{ user.email }}</span>
+                        {% if user.plan != 'free' %}
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {% if user.plan == 'enterprise' %}bg-purple-100 text-purple-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ user.plan }}</span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+                    <a href="/logout" class="text-sm text-gray-400 hover:text-red-500 transition font-medium">Salir</a>
+                </div>
             </div>
         </div>
     </nav>

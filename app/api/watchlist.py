@@ -1,7 +1,7 @@
 """API endpoints para vigilancia y alertas."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,11 @@ from app.services.watchlist_service import (
 router = APIRouter()
 
 
+def _user_id(request: Request) -> int | None:
+    user = getattr(request.state, "user", None)
+    return user["user_id"] if user else None
+
+
 class WatchlistBody(BaseModel):
     notas: str | None = None
     tipos_acto: list[str] | None = None
@@ -24,19 +29,23 @@ class WatchlistBody(BaseModel):
 @router.post("/{company_id}")
 async def api_add_to_watchlist(
     company_id: int,
+    request: Request,
     body: WatchlistBody = WatchlistBody(),
     db: AsyncSession = Depends(get_db),
 ):
-    entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto)
+    uid = _user_id(request)
+    entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto, user_id=uid)
     return {"ok": True, "id": entry.id}
 
 
 @router.delete("/{company_id}")
 async def api_remove_from_watchlist(
     company_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    removed = await remove_from_watchlist(company_id, db)
+    uid = _user_id(request)
+    removed = await remove_from_watchlist(company_id, db, user_id=uid)
     return {"ok": removed}
 
 
@@ -50,6 +59,7 @@ async def api_mark_alert_read(
 
 
 @router.post("/alerts/read-all")
-async def api_mark_all_read(db: AsyncSession = Depends(get_db)):
-    count = await mark_all_read(db)
+async def api_mark_all_read(request: Request, db: AsyncSession = Depends(get_db)):
+    uid = _user_id(request)
+    count = await mark_all_read(db, user_id=uid)
     return {"ok": True, "count": count}

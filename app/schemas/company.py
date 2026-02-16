@@ -20,6 +20,7 @@ class CompanyBase(BaseModel):
     telefono: str | None = None
     web: str | None = None
     estado: str = "activa"
+    score_solvencia: int | None = None
 
 
 class CompanyOut(CompanyBase):

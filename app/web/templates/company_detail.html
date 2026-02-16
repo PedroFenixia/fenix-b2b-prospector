@@ -51,6 +51,49 @@
         </div>
     </div>
 
+    <!-- Solvency Score -->
+    <div class="card p-6" id="score-card">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-gray-900">Puntuacion de solvencia</h2>
+            <button onclick="computeScore({{ company.id }})" id="btn-score" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">
+                {% if company.score_solvencia is not none %}Recalcular{% else %}Calcular{% endif %}
+            </button>
+        </div>
+        <div class="flex items-center gap-6" id="score-display">
+            {% if company.score_solvencia is not none %}
+            <div class="relative w-20 h-20">
+                <svg class="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f3f4f6" stroke-width="3"/>
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
+                          stroke="{% if company.score_solvencia >= 76 %}#22c55e{% elif company.score_solvencia >= 51 %}#eab308{% elif company.score_solvencia >= 26 %}#f97316{% else %}#ef4444{% endif %}"
+                          stroke-width="3" stroke-dasharray="{{ company.score_solvencia }}, 100" stroke-linecap="round"/>
+                </svg>
+                <span class="absolute inset-0 flex items-center justify-center text-lg font-extrabold
+                    {% if company.score_solvencia >= 76 %}text-green-600{% elif company.score_solvencia >= 51 %}text-yellow-600{% elif company.score_solvencia >= 26 %}text-orange-500{% else %}text-red-600{% endif %}">
+                    {{ company.score_solvencia }}
+                </span>
+            </div>
+            <div>
+                {% if company.score_solvencia >= 76 %}
+                <p class="text-sm font-bold text-green-600">Muy fiable</p>
+                <p class="text-xs text-gray-500 mt-0.5">Empresa con indicadores solidos de solvencia</p>
+                {% elif company.score_solvencia >= 51 %}
+                <p class="text-sm font-bold text-yellow-600">Fiable</p>
+                <p class="text-xs text-gray-500 mt-0.5">Indicadores razonables, riesgo bajo-moderado</p>
+                {% elif company.score_solvencia >= 26 %}
+                <p class="text-sm font-bold text-orange-500">Riesgo moderado</p>
+                <p class="text-xs text-gray-500 mt-0.5">Algunos indicadores negativos detectados</p>
+                {% else %}
+                <p class="text-sm font-bold text-red-600">Riesgo alto</p>
+                <p class="text-xs text-gray-500 mt-0.5">Multiples indicadores negativos</p>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-sm">Pulsa "Calcular" para obtener la puntuacion de solvencia</p>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Data Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Basic Info -->
@@ -294,6 +337,24 @@ async function enrichWeb(companyId) {
         }
         btn.textContent = data.web ? 'Encontrado' : 'No encontrado';
         btn.classList.add(data.web ? 'text-green-500' : 'text-red-400');
+    } catch(e) {
+        btn.textContent = 'Error';
+    }
+}
+
+async function computeScore(companyId) {
+    var btn = document.getElementById('btn-score');
+    btn.textContent = 'Calculando...';
+    btn.disabled = true;
+    try {
+        var resp = await fetch('/api/companies/' + companyId + '/score', { method: 'POST' });
+        var data = await resp.json();
+        if (data.score !== undefined) {
+            // Reload page to show the new score with proper styling
+            window.location.reload();
+        } else {
+            btn.textContent = 'Error';
+        }
     } catch(e) {
         btn.textContent = 'Error';
     }

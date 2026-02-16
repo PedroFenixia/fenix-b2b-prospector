@@ -54,82 +54,109 @@ async def fetch_boe_subsidies(fecha: date) -> list[dict]:
 
 
 def _parse_subsidies_from_sumario(fecha: date, xml_content: bytes) -> list[dict]:
-    """Parse BOE sumario XML to extract subsidy items from Section V.B.
+    """Parse BOE sumario XML to extract subsidy items.
 
-    BOE structure: sumario > diario > seccion[@num='5'] > departamento > epigrafe > item
-    Section 5 = "V. Anuncios", subsections B/C contain grants/subsidies.
+    BOE section codes (attribute ``codigo``): "3" = Otras disposiciones,
+    "5A" = Contratacion del Sector Publico, "5B" = Otros anuncios oficiales.
+    Subsidies appear mainly in 3 and 5B.
+
+    Items can be children of ``<epigrafe>`` or direct children of
+    ``<departamento>`` (section 5B has no epigrafes).
     """
     root = etree.fromstring(xml_content)
     items = []
 
+    # Keywords that indicate a subsidy/grant
+    SUBSIDY_KW = [
+        "subvenci", "ayuda", "convocatoria", "bases reguladora",
+        "becas", "financiaci", "incentivo",
+        "concesión de subvenci", "concesión de ayuda",
+        "concesión directa",
+    ]
+    # False-positive exclusions (water/port concessions)
+    EXCLUDE_KW = ["hidrogr", "portuaria", "confederación", "aguas"]
+
     for seccion in root.iter("seccion"):
-        num = seccion.get("num", "")
-        # Section 5 = V. Anuncios (contains subsidies in subsections B, C)
-        if num != "5":
+        codigo = seccion.get("codigo", "")
+        # Subsidies appear in sections 3, 5A, and 5B
+        if not (codigo.startswith("5") or codigo == "3"):
             continue
 
         for departamento in seccion.findall(".//departamento"):
             dept_name = departamento.get("nombre", "")
 
-            for epigrafe in departamento.findall(".//epigrafe"):
-                ep_name = epigrafe.get("nombre", "")
+            # Items can be under <epigrafe> or directly under <departamento>
+            all_items = departamento.findall(".//item")
 
-                for item in epigrafe.findall("item"):
-                    item_id = item.get("id", "")
-                    titulo_elem = item.find("titulo")
-                    titulo = titulo_elem.text.strip() if titulo_elem is not None and titulo_elem.text else ""
+            for item in all_items:
+                id_elem = item.find("identificador")
+                item_id = id_elem.text.strip() if id_elem is not None and id_elem.text else ""
 
-                    url_html_elem = item.find("url_html")
-                    url_html = ""
-                    if url_html_elem is not None and url_html_elem.text:
-                        url_html = url_html_elem.text.strip()
-                        if url_html and not url_html.startswith("http"):
-                            url_html = f"{BOE_BASE}{url_html}"
+                titulo_elem = item.find("titulo")
+                titulo = titulo_elem.text.strip() if titulo_elem is not None and titulo_elem.text else ""
 
-                    url_pdf_elem = item.find("url_pdf")
-                    url_pdf = ""
-                    if url_pdf_elem is not None and url_pdf_elem.text:
-                        url_pdf = url_pdf_elem.text.strip()
-                        if url_pdf and not url_pdf.startswith("http"):
-                            url_pdf = f"{BOE_BASE}{url_pdf}"
+                url_html_elem = item.find("url_html")
+                url_html = ""
+                if url_html_elem is not None and url_html_elem.text:
+                    url_html = url_html_elem.text.strip()
 
-                    # Only include items that look like subsidies/grants
-                    titulo_lower = titulo.lower()
-                    is_subsidy = any(kw in titulo_lower for kw in [
-                        "subvenci", "ayuda", "convocatoria", "bases reguladora",
-                        "concesi", "becas", "financiaci", "incentivo",
-                    ])
+                url_pdf_elem = item.find("url_pdf")
+                url_pdf = ""
+                if url_pdf_elem is not None and url_pdf_elem.text:
+                    url_pdf = url_pdf_elem.text.strip()
 
-                    if item_id and titulo and is_subsidy:
-                        items.append({
-                            "boe_id": item_id,
-                            "titulo": titulo,
-                            "organismo": dept_name,
-                            "url_html": url_html,
-                            "url_pdf": url_pdf,
-                            "fecha_publicacion": fecha,
-                            "sector": ep_name if ep_name else None,
-                        })
+                # Determine epigrafe (parent may be epigrafe or departamento)
+                parent = item.getparent()
+                ep_name = parent.get("nombre", "") if parent is not None and parent.tag == "epigrafe" else ""
+
+                titulo_lower = titulo.lower()
+                is_subsidy = any(kw in titulo_lower for kw in SUBSIDY_KW)
+
+                # Exclude false positives (water concessions, port authority, etc.)
+                if is_subsidy and any(ex in titulo_lower for ex in EXCLUDE_KW):
+                    is_subsidy = False
+
+                if item_id and titulo and is_subsidy:
+                    items.append({
+                        "boe_id": item_id,
+                        "titulo": titulo,
+                        "organismo": dept_name,
+                        "url_html": url_html,
+                        "url_pdf": url_pdf,
+                        "fecha_publicacion": fecha,
+                        "sector": ep_name if ep_name else None,
+                    })
 
     return items
 
 
 async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[dict]:
-    """Fetch BOE item detail API to get full description and metadata."""
+    """Fetch BOE document XML to get full description and metadata.
+
+    The /api/boe/documento/ endpoint does NOT exist. Instead we use
+    /diario_boe/xml.php?id={BOE_ID} which returns the full document XML.
+    """
     boe_id = item["boe_id"]
-    url = f"{BOE_BASE}/datosabiertos/api/boe/documento/{boe_id}"
+    url = f"{BOE_BASE}/diario_boe/xml.php?id={boe_id}"
 
     try:
-        resp = await client.get(url, headers={"Accept": "application/xml"})
+        resp = await client.get(url)
         if resp.status_code != 200:
-            return item  # Return basic info if detail unavailable
+            return item
 
         root = etree.fromstring(resp.content)
 
-        # Extract description from <texto> or <titulo>
+        # Some BOE-B documents return <error> instead of <documento>
+        if root.tag == "error":
+            logger.debug(f"BOE XML API returned error for {boe_id}, skipping detail")
+            return item
+
+        # <texto> may contain child elements (p, table, etc.)
         texto_elem = root.find(".//texto")
-        if texto_elem is not None and texto_elem.text:
-            item["descripcion"] = texto_elem.text.strip()[:2000]
+        if texto_elem is not None:
+            full_text = etree.tostring(texto_elem, method="text", encoding="unicode")
+            if full_text:
+                item["descripcion"] = " ".join(full_text.split())[:2000]
 
         # Try to extract importe (amount)
         titulo_text = item.get("titulo", "") + " " + item.get("descripcion", "")
@@ -142,10 +169,11 @@ async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[
         if ambito_elem is not None and ambito_elem.text:
             item["ambito"] = ambito_elem.text.strip()
 
-        # Try to find deadline info
-        materias = root.find(".//materias")
-        if materias is not None and materias.text:
-            item["beneficiarios"] = materias.text.strip()[:500]
+        # Extract materias (topics/beneficiaries)
+        for materia in root.findall(".//materia"):
+            if materia.text and materia.text.strip():
+                item["beneficiarios"] = materia.text.strip()[:500]
+                break
 
         return item
 

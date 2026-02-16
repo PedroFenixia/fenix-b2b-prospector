@@ -19,6 +19,7 @@ class SearchFilters(BaseModel):
     pub_hasta: date | None = None
     capital_min: float | None = None
     capital_max: float | None = None
+    score_min: int | None = None
     sort_by: str = "fecha_ultima_publicacion"
     sort_order: str = "desc"
     page: int = Field(default=1, ge=1)

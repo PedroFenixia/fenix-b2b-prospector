@@ -19,46 +19,58 @@ async def add_to_watchlist(
     notas: str | None,
     db: AsyncSession,
     tipos_acto: list[str] | None = None,
+    user_id: int | None = None,
 ) -> Watchlist | None:
     """Añadir empresa a la watchlist con filtro opcional de tipos de acto."""
     import json
     tipos_json = json.dumps(tipos_acto) if tipos_acto else None
-    existing = await db.scalar(select(Watchlist).where(Watchlist.company_id == company_id))
+    query = select(Watchlist).where(Watchlist.company_id == company_id)
+    if user_id:
+        query = query.where(Watchlist.user_id == user_id)
+    existing = await db.scalar(query)
     if existing:
         existing.notas = notas
         existing.tipos_acto = tipos_json
         await db.commit()
         return existing
-    entry = Watchlist(company_id=company_id, notas=notas, tipos_acto=tipos_json)
+    entry = Watchlist(company_id=company_id, notas=notas, tipos_acto=tipos_json, user_id=user_id)
     db.add(entry)
     await db.commit()
     await db.refresh(entry)
     return entry
 
 
-async def remove_from_watchlist(company_id: int, db: AsyncSession) -> bool:
+async def remove_from_watchlist(company_id: int, db: AsyncSession, user_id: int | None = None) -> bool:
     """Eliminar empresa de la watchlist."""
-    result = await db.execute(delete(Watchlist).where(Watchlist.company_id == company_id))
+    query = delete(Watchlist).where(Watchlist.company_id == company_id)
+    if user_id:
+        query = query.where(Watchlist.user_id == user_id)
+    result = await db.execute(query)
     await db.commit()
     return result.rowcount > 0
 
 
-async def is_watched(company_id: int, db: AsyncSession) -> bool:
+async def is_watched(company_id: int, db: AsyncSession, user_id: int | None = None) -> bool:
     """Comprobar si una empresa esta en la watchlist."""
-    result = await db.scalar(select(Watchlist.id).where(Watchlist.company_id == company_id))
+    query = select(Watchlist.id).where(Watchlist.company_id == company_id)
+    if user_id:
+        query = query.where(Watchlist.user_id == user_id)
+    result = await db.scalar(query)
     return result is not None
 
 
-async def get_watchlist(db: AsyncSession, page: int = 1, per_page: int = 25) -> dict:
+async def get_watchlist(db: AsyncSession, page: int = 1, per_page: int = 25, user_id: int | None = None) -> dict:
     """Obtener listado de empresas vigiladas."""
-    total = await db.scalar(select(func.count(Watchlist.id)))
+    count_q = select(func.count(Watchlist.id))
+    items_q = select(Watchlist).options(joinedload(Watchlist.company))
+    if user_id:
+        count_q = count_q.where(Watchlist.user_id == user_id)
+        items_q = items_q.where(Watchlist.user_id == user_id)
+
+    total = await db.scalar(count_q)
     offset = (page - 1) * per_page
     items = await db.scalars(
-        select(Watchlist)
-        .options(joinedload(Watchlist.company))
-        .order_by(Watchlist.created_at.desc())
-        .offset(offset)
-        .limit(per_page)
+        items_q.order_by(Watchlist.created_at.desc()).offset(offset).limit(per_page)
     )
     return {
         "items": items.unique().all(),
@@ -73,24 +85,24 @@ async def get_alerts(
     solo_no_leidas: bool = False,
     page: int = 1,
     per_page: int = 25,
+    user_id: int | None = None,
 ) -> dict:
     """Obtener alertas."""
-    query = select(func.count(Alert.id))
-    if solo_no_leidas:
-        query = query.where(Alert.leida == False)
-    total = await db.scalar(query)
+    count_q = select(func.count(Alert.id))
+    items_q = select(Alert).options(joinedload(Alert.company), joinedload(Alert.act))
 
-    offset = (page - 1) * per_page
-    items_q = (
-        select(Alert)
-        .options(joinedload(Alert.company), joinedload(Alert.act))
-        .order_by(Alert.created_at.desc())
-        .offset(offset)
-        .limit(per_page)
-    )
+    if user_id:
+        count_q = count_q.where(Alert.user_id == user_id)
+        items_q = items_q.where(Alert.user_id == user_id)
     if solo_no_leidas:
+        count_q = count_q.where(Alert.leida == False)
         items_q = items_q.where(Alert.leida == False)
-    items = await db.scalars(items_q)
+
+    total = await db.scalar(count_q)
+    offset = (page - 1) * per_page
+    items = await db.scalars(
+        items_q.order_by(Alert.created_at.desc()).offset(offset).limit(per_page)
+    )
 
     return {
         "items": items.unique().all(),
@@ -100,9 +112,12 @@ async def get_alerts(
     }
 
 
-async def count_unread_alerts(db: AsyncSession) -> int:
+async def count_unread_alerts(db: AsyncSession, user_id: int | None = None) -> int:
     """Contar alertas sin leer."""
-    return await db.scalar(select(func.count(Alert.id)).where(Alert.leida == False)) or 0
+    query = select(func.count(Alert.id)).where(Alert.leida == False)
+    if user_id:
+        query = query.where(Alert.user_id == user_id)
+    return await db.scalar(query) or 0
 
 
 async def mark_alert_read(alert_id: int, db: AsyncSession) -> bool:
@@ -115,10 +130,13 @@ async def mark_alert_read(alert_id: int, db: AsyncSession) -> bool:
     return True
 
 
-async def mark_all_read(db: AsyncSession) -> int:
+async def mark_all_read(db: AsyncSession, user_id: int | None = None) -> int:
     """Marcar todas las alertas como leidas."""
     from sqlalchemy import update
-    result = await db.execute(update(Alert).where(Alert.leida == False).values(leida=True))
+    query = update(Alert).where(Alert.leida == False).values(leida=True)
+    if user_id:
+        query = query.where(Alert.user_id == user_id)
+    result = await db.execute(query)
     await db.commit()
     return result.rowcount
 
@@ -127,48 +145,49 @@ async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
     """Generar alertas para empresas vigiladas que tuvieron actividad en una fecha.
 
     Respeta el filtro tipos_acto de cada watchlist entry (null = todos los tipos).
+    Genera alertas asignadas al user_id del watchlist entry.
     """
     import json as _json
 
-    # Obtener watchlist con filtros
     watchlist_entries = (await db.scalars(select(Watchlist))).all()
     if not watchlist_entries:
         return 0
 
-    # Build map: company_id -> allowed act types (None = all)
-    watch_filters: dict[int, set[str] | None] = {}
+    # Build map: (company_id, user_id) -> allowed act types
+    watch_map: list[tuple[int, int | None, set[str] | None]] = []
+    company_ids = set()
     for entry in watchlist_entries:
-        if entry.tipos_acto:
-            watch_filters[entry.company_id] = set(_json.loads(entry.tipos_acto))
-        else:
-            watch_filters[entry.company_id] = None  # all types
+        tipos = set(_json.loads(entry.tipos_acto)) if entry.tipos_acto else None
+        watch_map.append((entry.company_id, entry.user_id, tipos))
+        company_ids.add(entry.company_id)
 
-    # Buscar actos de esa fecha para empresas vigiladas
     acts = await db.scalars(
         select(Act)
         .options(joinedload(Act.company))
         .where(
             Act.fecha_publicacion == fecha,
-            Act.company_id.in_(watch_filters.keys()),
+            Act.company_id.in_(company_ids),
         )
     )
 
     count = 0
     for act in acts.unique().all():
-        allowed = watch_filters.get(act.company_id)
-        # Skip if act type not in the filter
-        if allowed is not None and act.tipo_acto not in allowed:
-            continue
+        for cid, uid, allowed in watch_map:
+            if cid != act.company_id:
+                continue
+            if allowed is not None and act.tipo_acto not in allowed:
+                continue
 
-        alert = Alert(
-            company_id=act.company_id,
-            act_id=act.id,
-            tipo=act.tipo_acto,
-            titulo=f"{act.company.nombre}: {act.tipo_acto}",
-            descripcion=act.texto_original[:500] if act.texto_original else None,
-        )
-        db.add(alert)
-        count += 1
+            alert = Alert(
+                user_id=uid,
+                company_id=act.company_id,
+                act_id=act.id,
+                tipo=act.tipo_acto,
+                titulo=f"{act.company.nombre}: {act.tipo_acto}",
+                descripcion=act.texto_original[:500] if act.texto_original else None,
+            )
+            db.add(alert)
+            count += 1
 
     if count > 0:
         await db.commit()

@@ -55,55 +55,65 @@ async def fetch_boe_judicial(fecha: date) -> list[dict]:
 
 
 def _parse_judicial_from_sumario(fecha: date, xml_content: bytes) -> list[dict]:
-    """Parse BOE sumario XML for judicial notices from Section III."""
+    """Parse BOE sumario XML for judicial notices.
+
+    BOE section codes (attribute ``codigo``): "3" = Otras disposiciones,
+    "4" = Administracion de Justicia (when published), "5B" = Otros anuncios
+    oficiales. Judicial items can appear in any of these.
+
+    Items can be children of ``<epigrafe>`` or direct children of
+    ``<departamento>`` (section 5B has no epigrafes).
+    """
     root = etree.fromstring(xml_content)
     items = []
 
     for seccion in root.iter("seccion"):
-        num = seccion.get("num", "")
-        # Section 3 = III. Administracion de Justicia
-        if num != "3":
+        codigo = seccion.get("codigo", "")
+        # Check sections that may contain judicial notices
+        if codigo not in ("3", "4", "5B"):
             continue
 
         for departamento in seccion.findall(".//departamento"):
             dept_name = departamento.get("nombre", "")
 
-            for epigrafe in departamento.findall(".//epigrafe"):
-                ep_name = epigrafe.get("nombre", "")
+            # Items can be under <epigrafe> or directly under <departamento>
+            all_items = departamento.findall(".//item")
 
-                for item in epigrafe.findall("item"):
-                    item_id = item.get("id", "")
-                    titulo_elem = item.find("titulo")
-                    titulo = titulo_elem.text.strip() if titulo_elem is not None and titulo_elem.text else ""
+            for item in all_items:
+                id_elem = item.find("identificador")
+                item_id = id_elem.text.strip() if id_elem is not None and id_elem.text else ""
 
-                    url_html_elem = item.find("url_html")
-                    url_html = ""
-                    if url_html_elem is not None and url_html_elem.text:
-                        url_html = url_html_elem.text.strip()
-                        if url_html and not url_html.startswith("http"):
-                            url_html = f"{BOE_BASE}{url_html}"
+                titulo_elem = item.find("titulo")
+                titulo = titulo_elem.text.strip() if titulo_elem is not None and titulo_elem.text else ""
 
-                    url_pdf_elem = item.find("url_pdf")
-                    url_pdf = ""
-                    if url_pdf_elem is not None and url_pdf_elem.text:
-                        url_pdf = url_pdf_elem.text.strip()
-                        if url_pdf and not url_pdf.startswith("http"):
-                            url_pdf = f"{BOE_BASE}{url_pdf}"
+                url_html_elem = item.find("url_html")
+                url_html = ""
+                if url_html_elem is not None and url_html_elem.text:
+                    url_html = url_html_elem.text.strip()
 
-                    # Classify type
-                    titulo_lower = titulo.lower()
-                    tipo = _classify_notice(titulo_lower, ep_name.lower())
+                url_pdf_elem = item.find("url_pdf")
+                url_pdf = ""
+                if url_pdf_elem is not None and url_pdf_elem.text:
+                    url_pdf = url_pdf_elem.text.strip()
 
-                    if item_id and titulo and tipo:
-                        items.append({
-                            "boe_id": item_id,
-                            "titulo": titulo,
-                            "tipo": tipo,
-                            "juzgado": dept_name if dept_name else None,
-                            "url_html": url_html,
-                            "url_pdf": url_pdf,
-                            "fecha_publicacion": fecha,
-                        })
+                # Determine epigrafe for classification
+                parent = item.getparent()
+                ep_name = parent.get("nombre", "") if parent is not None and parent.tag == "epigrafe" else ""
+
+                # Classify type
+                titulo_lower = titulo.lower()
+                tipo = _classify_notice(titulo_lower, ep_name.lower())
+
+                if item_id and titulo and tipo:
+                    items.append({
+                        "boe_id": item_id,
+                        "titulo": titulo,
+                        "tipo": tipo,
+                        "juzgado": dept_name if dept_name else None,
+                        "url_html": url_html,
+                        "url_pdf": url_pdf,
+                        "fecha_publicacion": fecha,
+                    })
 
     return items
 
@@ -125,33 +135,44 @@ def _classify_notice(titulo: str, epigrafe: str) -> Optional[str]:
 
 
 async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[dict]:
-    """Fetch BOE item detail to extract full description and debtor info."""
+    """Fetch BOE document XML to extract full description and debtor info.
+
+    The /api/boe/documento/ endpoint does NOT exist. Instead we use
+    /diario_boe/xml.php?id={BOE_ID} which returns the full document XML.
+    """
     boe_id = item["boe_id"]
-    url = f"{BOE_BASE}/datosabiertos/api/boe/documento/{boe_id}"
+    url = f"{BOE_BASE}/diario_boe/xml.php?id={boe_id}"
 
     try:
-        resp = await client.get(url, headers={"Accept": "application/xml"})
+        resp = await client.get(url)
         if resp.status_code != 200:
             return item
 
         root = etree.fromstring(resp.content)
 
-        # Extract description
+        # Some BOE-B documents return <error> instead of <documento>
+        if root.tag == "error":
+            logger.debug(f"BOE XML API returned error for {boe_id}, skipping detail")
+            return item
+
+        # <texto> may contain child elements (p, table, etc.)
         texto_elem = root.find(".//texto")
-        if texto_elem is not None and texto_elem.text:
-            desc = texto_elem.text.strip()[:3000]
-            item["descripcion"] = desc
+        if texto_elem is not None:
+            full_text = etree.tostring(texto_elem, method="text", encoding="unicode")
+            if full_text:
+                desc = " ".join(full_text.split())[:3000]
+                item["descripcion"] = desc
 
-            # Try to extract debtor name
-            deudor = _extract_deudor(desc)
-            if deudor:
-                item["deudor"] = deudor
+                # Try to extract debtor name
+                deudor = _extract_deudor(desc)
+                if deudor:
+                    item["deudor"] = deudor
 
-            # Try to extract location
-            loc = _extract_localidad(desc)
-            if loc:
-                item["localidad"] = loc.get("localidad")
-                item["provincia"] = loc.get("provincia")
+                # Try to extract location
+                loc = _extract_localidad(desc)
+                if loc:
+                    item["localidad"] = loc.get("localidad")
+                    item["provincia"] = loc.get("provincia")
 
         return item
 
