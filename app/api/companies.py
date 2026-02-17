@@ -42,13 +42,9 @@ async def patch_company_cif(
 
 @router.post("/{company_id}/lookup-cif")
 async def lookup_company_cif(company_id: int, db: AsyncSession = Depends(get_db)):
-    """Lookup CIF for a company using APIEmpresas.es."""
-    from app.config import settings
-    if not settings.apiempresas_key:
-        return {"error": "APIEMPRESAS_KEY no configurada"}
-
+    """Lookup CIF for a company searching the web."""
     from app.services.cif_enrichment import enrich_company_cif
-    cif = await enrich_company_cif(company_id, db, settings.apiempresas_key)
+    cif = await enrich_company_cif(company_id, db)
     if cif:
         return {"cif": cif}
     return {"cif": None, "error": "CIF no encontrado"}

@@ -1,9 +1,11 @@
-"""Enriquecimiento de CIF usando APIEmpresas.es + scraping de empresia.es como fallback."""
+"""Enriquecimiento de CIF buscando en internet por nombre de empresa."""
 from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
+from collections import Counter
 from typing import Optional
 
 import httpx
@@ -11,21 +13,30 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from unidecode import unidecode
 
-from app.config import settings
 from app.db.models import Company
 
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://apiempresas.es/api/v1"
-RATE_LIMIT_DELAY = 1.5  # seconds between requests to stay within limits
+RATE_LIMIT_DELAY = 2.0  # seconds between requests
 
-# CIF regex
+# CIF regex: letra + 7 digitos + control (digito o letra)
 CIF_RE = re.compile(r"\b([ABCDEFGHJKLMNPQRSUVW]\d{7}[0-9A-J])\b")
 
-UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
+# Rotación de User-Agents para evitar detección
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+]
+
+
+def _random_ua() -> str:
+    return random.choice(_USER_AGENTS)
+
+
+UA = _USER_AGENTS[0]  # Default for backwards compat
 
 
 def _name_to_slug(nombre: str) -> str:
@@ -36,107 +47,168 @@ def _name_to_slug(nombre: str) -> str:
     return slug
 
 
-async def lookup_cif_empresia(nombre: str) -> Optional[str]:
-    """Scrape empresia.es to find CIF for a company by name."""
+def _clean_name(nombre: str) -> str:
+    """Remove legal form suffixes for better search results."""
+    cleaned = nombre.strip()
+    for suffix in ["SL", "SLL", "SA", "SLU", "SAU", "SLNE", "SC", "SLP", "COOP"]:
+        cleaned = re.sub(rf"\b{suffix}\b\.?$", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = cleaned.rstrip(".,- ")
+    return cleaned
+
+
+async def _search_empresia(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
+    """Search empresia.es by direct URL slug."""
     slug = _name_to_slug(nombre)
     url = f"https://www.empresia.es/empresa/{slug}/"
-
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        try:
-            resp = await client.get(url, headers={"User-Agent": UA})
-            if resp.status_code != 200:
-                return None
-
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(resp.text, "html.parser")
-
-            # Look for CIF in dt/dd pairs
-            for dt in soup.find_all("dt"):
-                if "CIF" in dt.get_text():
-                    dd = dt.find_next_sibling("dd")
-                    if dd:
-                        cif_match = CIF_RE.search(dd.get_text())
-                        if cif_match:
-                            return cif_match.group(1)
-
-            # Fallback: search full page text
-            text = soup.get_text()
-            cifs = CIF_RE.findall(text)
-            if cifs:
-                return cifs[0]
-
-        except Exception as e:
-            logger.debug(f"Empresia.es error for '{nombre}': {e}")
+    try:
+        resp = await client.get(url, headers={"User-Agent": _random_ua()})
+        if resp.status_code == 429:
+            logger.warning("empresia.es rate limit, backing off")
+            await asyncio.sleep(30)
+            return None
+        if resp.status_code != 200:
+            return None
+        cifs = CIF_RE.findall(resp.text)
+        if cifs:
+            return cifs[0]
+    except Exception as e:
+        logger.debug(f"empresia.es error for '{nombre}': {e}")
     return None
 
 
-async def lookup_cif_by_name(nombre: str, api_key: str) -> Optional[dict]:
-    """Search for a company CIF by name using APIEmpresas.es."""
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        try:
-            resp = await client.get(
-                f"{API_BASE}/companies/search",
-                params={"name": nombre},
-                headers={"X-API-KEY": api_key},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list) and data:
-                    return data[0]  # Best match
-                elif isinstance(data, dict) and data.get("data"):
-                    results = data["data"]
-                    if results:
-                        return results[0]
-            elif resp.status_code == 429:
-                logger.warning("APIEmpresas rate limit reached")
-                return None
-            elif resp.status_code == 401:
-                logger.error("APIEmpresas API key invalid")
-                return None
-            else:
-                logger.warning(f"APIEmpresas returned {resp.status_code} for '{nombre}'")
-        except Exception as e:
-            logger.error(f"APIEmpresas error for '{nombre}': {e}")
+async def _search_infocif(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
+    """Search infocif.es by company name."""
+    search_name = _clean_name(nombre)
+    url = "https://www.infocif.es/general/empresas-702702.asp"
+    try:
+        resp = await client.get(
+            url,
+            params={"Ession": search_name},
+            headers={"User-Agent": _random_ua()},
+        )
+        if resp.status_code == 429:
+            logger.warning("infocif.es rate limit, backing off")
+            await asyncio.sleep(30)
+            return None
+        if resp.status_code != 200:
+            return None
+        cifs = CIF_RE.findall(resp.text)
+        if cifs:
+            return cifs[0]
+    except Exception as e:
+        logger.debug(f"infocif.es error for '{nombre}': {e}")
     return None
 
 
-async def enrich_company_cif(company_id: int, db: AsyncSession, api_key: str) -> Optional[str]:
-    """Lookup and store CIF for a single company. Tries APIEmpresas first, then empresia.es."""
+async def _search_google(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
+    """Search Google HTML for CIF of a company."""
+    search_name = _clean_name(nombre)
+    query = f'"{search_name}" CIF empresa España'
+    try:
+        resp = await client.get(
+            "https://www.google.com/search",
+            params={"q": query, "hl": "es", "num": "10"},
+            headers={"User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9"},
+        )
+        if resp.status_code != 200:
+            return None
+        cifs = CIF_RE.findall(resp.text)
+        if cifs:
+            counter = Counter(cifs)
+            return counter.most_common(1)[0][0]
+    except Exception as e:
+        logger.debug(f"Google error for '{nombre}': {e}")
+    return None
+
+
+async def _search_duckduckgo(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
+    """Search DuckDuckGo HTML for CIF of a company (fallback)."""
+    search_name = _clean_name(nombre)
+    query = f'"{search_name}" CIF empresa'
+    try:
+        resp = await client.get(
+            "https://html.duckduckgo.com/html/",
+            params={"q": query},
+            headers={"User-Agent": _random_ua()},
+        )
+        if resp.status_code == 429 or resp.status_code == 202:
+            logger.warning("DuckDuckGo rate limit, backing off")
+            await asyncio.sleep(60)
+            return None
+        if resp.status_code != 200:
+            return None
+        cifs = CIF_RE.findall(resp.text)
+        if cifs:
+            counter = Counter(cifs)
+            return counter.most_common(1)[0][0]
+    except Exception as e:
+        logger.debug(f"DuckDuckGo error for '{nombre}': {e}")
+    return None
+
+
+_proxy_list: list[str] = []
+_proxy_index = 0
+
+
+def _get_proxy() -> Optional[str]:
+    """Get next proxy URL from rotating list."""
+    global _proxy_list, _proxy_index
+    from app.config import settings
+    if not _proxy_list and settings.enrichment_proxies:
+        _proxy_list = [p.strip() for p in settings.enrichment_proxies.split(",") if p.strip()]
+    if not _proxy_list:
+        return None
+    proxy = _proxy_list[_proxy_index % len(_proxy_list)]
+    _proxy_index += 1
+    return proxy
+
+
+async def lookup_cif_by_name(nombre: str, use_google: bool = True) -> Optional[str]:
+    """Search multiple free web sources for a company's CIF.
+
+    Individual mode (use_google=True): Google -> empresia -> infocif -> DuckDuckGo
+    Batch mode (use_google=False): empresia -> infocif -> DuckDuckGo (evita baneo Google)
+    """
+    proxy = _get_proxy()
+    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True, proxy=proxy) as client:
+        if use_google:
+            cif = await _search_google(nombre, client)
+            if cif:
+                return cif
+
+        cif = await _search_empresia(nombre, client)
+        if cif:
+            return cif
+
+        cif = await _search_infocif(nombre, client)
+        if cif:
+            return cif
+
+        cif = await _search_duckduckgo(nombre, client)
+        if cif:
+            return cif
+
+    return None
+
+
+async def enrich_company_cif(company_id: int, db: AsyncSession) -> Optional[str]:
+    """Lookup and store CIF for a single company via web search."""
     company = await db.get(Company, company_id)
     if not company or company.cif:
         return company.cif if company else None
 
-    # Try APIEmpresas first
-    if api_key:
-        result = await lookup_cif_by_name(company.nombre, api_key)
-        if result:
-            cif = result.get("cif") or result.get("nif")
-            if cif:
-                company.cif = cif
-                await db.commit()
-                logger.info(f"CIF (APIEmpresas): {company.nombre} -> {cif}")
-                return cif
-
-    # Fallback: scrape empresia.es
-    cif = await lookup_cif_empresia(company.nombre)
+    cif = await lookup_cif_by_name(company.nombre)
     if cif:
         company.cif = cif
         await db.commit()
-        logger.info(f"CIF (empresia.es): {company.nombre} -> {cif}")
+        logger.info(f"CIF found: {company.nombre} -> {cif}")
         return cif
 
     return None
 
 
-async def enrich_batch(
-    db: AsyncSession,
-    api_key: str,
-    limit: int = 50,
-) -> dict:
-    """Enrich a batch of companies that don't have CIF.
-
-    Returns stats: total attempted, found, not found.
-    """
+async def enrich_batch(db: AsyncSession, limit: int = 50) -> dict:
+    """Enrich a batch of companies that don't have CIF."""
     companies = await db.scalars(
         select(Company)
         .where(Company.cif.is_(None))
@@ -148,18 +220,8 @@ async def enrich_batch(
 
     for company in companies.all():
         stats["attempted"] += 1
-        cif = None
         try:
-            # Try APIEmpresas first
-            if api_key:
-                result = await lookup_cif_by_name(company.nombre, api_key)
-                if result:
-                    cif = result.get("cif") or result.get("nif")
-
-            # Fallback: empresia.es scraping
-            if not cif:
-                cif = await lookup_cif_empresia(company.nombre)
-
+            cif = await lookup_cif_by_name(company.nombre)
             if cif:
                 company.cif = cif
                 stats["found"] += 1

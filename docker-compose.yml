@@ -1,4 +1,17 @@
 services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+    env_file: .env
+    depends_on:
+      - typesense
+    restart: unless-stopped
+
   typesense:
     image: typesense/typesense:27.1
     ports:

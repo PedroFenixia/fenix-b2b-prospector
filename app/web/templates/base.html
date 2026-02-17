@@ -15,7 +15,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
                     colors: {
-                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#0d9488', 600: '#0f766e', 700: '#115e59', 800: '#134e4a' },
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 500: '#2563eb', 600: '#1d4ed8', 700: '#1e40af', 800: '#1e3a8a' },
                     },
                     borderRadius: { '2xl': '16px', '3xl': '20px' },
                 }
@@ -29,11 +29,11 @@
         .htmx-request.htmx-indicator { display: inline-flex; }
         .card { background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.03); transition: all .3s; }
         .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.04); }
-        .btn-primary { background: #0d9488; color: #fff; box-shadow: 0 2px 12px rgba(13,148,136,.2); }
-        .btn-primary:hover { background: #0f766e; box-shadow: 0 6px 24px rgba(13,148,136,.28); transform: translateY(-1px); }
-        ::selection { background: #0d9488; color: #fff; }
+        .btn-primary { background: #2563eb; color: #fff; box-shadow: 0 2px 12px rgba(37,99,235,.2); }
+        .btn-primary:hover { background: #1d4ed8; box-shadow: 0 6px 24px rgba(37,99,235,.28); transform: translateY(-1px); }
+        ::selection { background: #2563eb; color: #fff; }
         .nav-link { position: relative; transition: color .15s, background .15s; }
-        .nav-link.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #0d9488; border-radius: 2px; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #2563eb; border-radius: 2px; }
 
         /* Page entrance animation */
         main { animation: pageIn .22s ease-out; }
@@ -60,7 +60,7 @@
                     <a href="/" class="flex items-center gap-2.5">
                         <img src="/static/logo.png" alt="FENIX" class="h-8">
                         <span class="font-extrabold text-gray-900 tracking-tight">
-                            <span class="text-brand-500">FENIX</span> B2B Prospector
+                            <span class="text-brand-500">FENIX</span> Prospector
                         </span>
                     </a>
                     <div class="hidden md:flex items-center gap-1">

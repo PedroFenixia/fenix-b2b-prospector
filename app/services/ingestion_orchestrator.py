@@ -127,13 +127,20 @@ async def ingest_date_range(fecha_desde: date, fecha_hasta: date, reverse: bool 
             dates_to_fetch = []
             async with async_session() as db:
                 for d in batch:
-                    existing = await db.scalar(
-                        select(IngestionLog.status).where(
+                    existing_log = await db.scalar(
+                        select(IngestionLog).where(
                             IngestionLog.fecha_borme == d
                         )
                     )
-                    if existing == "completed":
-                        logger.info(f"Date {d} already ingested, skipping.")
+                    if existing_log and existing_log.status == "completed":
+                        # Retry if PDFs were found but none were downloaded (BOE wasn't ready)
+                        if existing_log.pdfs_found > 0 and existing_log.acts_created == 0:
+                            logger.info(f"Date {d} had {existing_log.pdfs_found} PDFs but 0 acts, retrying.")
+                            existing_log.status = "pending"
+                            await db.commit()
+                            dates_to_fetch.append(d)
+                        else:
+                            logger.info(f"Date {d} already ingested, skipping.")
                     else:
                         dates_to_fetch.append(d)
 
@@ -212,7 +219,15 @@ async def _store_date_results(fecha: date, sumario, all_parsed: list):
             log.companies_new = companies_new
             log.companies_updated = companies_updated
             log.acts_created = acts_created
-            log.status = "completed"
+
+            # Don't mark as completed if PDFs were found but nothing was parsed
+            # (BOE may not have had the PDFs ready yet — retry later)
+            if log.pdfs_found > 0 and acts_created == 0 and companies_new == 0:
+                log.status = "pending"
+                log.error_message = "PDFs found but none could be downloaded/parsed, will retry"
+                logger.warning(f"Date {fecha}: {log.pdfs_found} PDFs found but 0 parsed, marked for retry")
+            else:
+                log.status = "completed"
             log.completed_at = datetime.utcnow()
             await db.commit()
 

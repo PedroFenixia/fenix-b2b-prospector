@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Admin - Usuarios - FENIX B2B Prospector{% endblock %}
+{% block title %}Admin - Usuarios - FENIX Prospector{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -31,6 +31,42 @@
             <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Plan Enterprise</p>
             <p class="text-2xl font-bold text-purple-600">{{ users|selectattr('plan','equalto','enterprise')|list|length }}</p>
         </div>
+    </div>
+
+    <!-- Create user -->
+    <div class="card p-6">
+        <h2 class="text-base font-bold text-gray-900 mb-4">Crear usuario</h2>
+        <form id="create-user-form" class="flex flex-wrap items-end gap-3" onsubmit="createUser(event)">
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Email</label>
+                <input type="email" name="email" required placeholder="email@ejemplo.com"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-52">
+            </div>
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Nombre</label>
+                <input type="text" name="nombre" required placeholder="Nombre"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-36">
+            </div>
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Empresa</label>
+                <input type="text" name="empresa" placeholder="Empresa (opcional)"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-36">
+            </div>
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Plan</label>
+                <select name="plan" title="Plan del usuario" class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 outline-none">
+                    <option value="free">Free</option>
+                    <option value="pro">Pro</option>
+                    <option value="enterprise">Enterprise</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Contrasena</label>
+                <input type="text" name="password" required placeholder="Min 6 chars" minlength="6"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-36">
+            </div>
+            <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition">Crear</button>
+        </form>
     </div>
 
     <!-- Users table -->
@@ -147,6 +183,35 @@ function showToast(msg, ok) {
         t.style.opacity = '0';
         t.style.transform = 'translateY(1rem)';
     }, 2500);
+}
+
+async function createUser(e) {
+    e.preventDefault();
+    const form = e.target;
+    const body = {
+        email: form.email.value,
+        nombre: form.nombre.value,
+        empresa: form.empresa.value,
+        plan: form.plan.value,
+        password: form.password.value,
+    };
+    try {
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Usuario creado', true);
+            form.reset();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.error || 'Error', false);
+        }
+    } catch(e) {
+        showToast('Error de conexion', false);
+    }
 }
 
 async function updateUser(userId, field, value) {

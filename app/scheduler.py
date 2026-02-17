@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from datetime import date, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -31,11 +32,6 @@ async def daily_borme_update():
 
 async def _enrich_new_companies_cif(fecha: date):
     """Enrich CIF for companies first published on a given date (new entries only)."""
-    from app.config import settings
-
-    if not settings.apiempresas_key:
-        return
-
     from sqlalchemy import select
 
     from app.db.engine import async_session
@@ -61,7 +57,7 @@ async def _enrich_new_companies_cif(fecha: date):
         enriched = 0
         for company in new_companies:
             try:
-                cif = await lookup_cif_by_name(company.nombre, settings.apiempresas_key)
+                cif = await lookup_cif_by_name(company.nombre)
                 if cif:
                     company.cif = cif
                     enriched += 1
@@ -120,6 +116,121 @@ async def daily_boe_judicial_update():
         logger.info(f"[Scheduler] BOE judicial: {len(raw)} fetched, {count} new")
     except Exception as e:
         logger.error(f"[Scheduler] BOE judicial failed: {e}")
+
+
+_enrichment_running = False
+_enrichment_stop = False
+
+
+def stop_enrichment():
+    """Signal the enrichment process to stop."""
+    global _enrichment_stop
+    _enrichment_stop = True
+
+
+async def full_enrichment():
+    """Run full CIF + web enrichment for ALL companies missing data."""
+    global _enrichment_running, _enrichment_stop
+    if _enrichment_running:
+        logger.info("[Enrichment] Already running, skipping")
+        return
+    _enrichment_running = True
+    _enrichment_stop = False
+
+    from sqlalchemy import select, func as f
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.cif_enrichment import lookup_cif_by_name
+    from app.services.web_enrichment import enrich_company_web
+    import httpx
+
+    stats = {"cif_attempted": 0, "cif_found": 0, "web_attempted": 0, "web_found": 0, "errors": 0}
+
+    try:
+        # Phase 1: CIF enrichment
+        async with async_session() as db:
+            total = await db.scalar(select(f.count(Company.id)).where(Company.cif.is_(None))) or 0
+            logger.info(f"[Enrichment] Phase 1: {total} companies without CIF")
+            offset = 0
+            while not _enrichment_stop:
+                companies = (await db.scalars(
+                    select(Company).where(Company.cif.is_(None))
+                    .order_by(Company.fecha_ultima_publicacion.desc())
+                    .offset(offset).limit(100)
+                )).all()
+                if not companies:
+                    break
+                for c in companies:
+                    if _enrichment_stop:
+                        break
+                    stats["cif_attempted"] += 1
+                    try:
+                        cif = await lookup_cif_by_name(c.nombre, use_google=False)
+                        if cif:
+                            c.cif = cif
+                            stats["cif_found"] += 1
+                        await asyncio.sleep(random.uniform(3, 8))
+                    except Exception as e:
+                        stats["errors"] += 1
+                        logger.warning(f"[Enrichment] CIF error {c.nombre}: {e}")
+                        await asyncio.sleep(random.uniform(10, 30))
+                await db.commit()
+                offset += 100
+                logger.info(f"[Enrichment] CIF: {stats['cif_attempted']}/{total}, found: {stats['cif_found']}")
+
+        # Phase 2: Web enrichment
+        if not _enrichment_stop:
+            async with async_session() as db:
+                total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
+                logger.info(f"[Enrichment] Phase 2: {total} companies without web")
+                offset = 0
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    while not _enrichment_stop:
+                        companies = (await db.scalars(
+                            select(Company).where(Company.web.is_(None), Company.estado == "activa")
+                            .order_by(Company.fecha_ultima_publicacion.desc())
+                            .offset(offset).limit(100)
+                        )).all()
+                        if not companies:
+                            break
+                        for c in companies:
+                            if _enrichment_stop:
+                                break
+                            stats["web_attempted"] += 1
+                            try:
+                                r = await enrich_company_web(c, client)
+                                if r["web"]:
+                                    c.web = r["web"]
+                                    stats["web_found"] += 1
+                                if r["cif"] and not c.cif:
+                                    c.cif = r["cif"]
+                                if r["email"]:
+                                    c.email = r["email"]
+                                if r["telefono"]:
+                                    c.telefono = r["telefono"]
+                                await asyncio.sleep(random.uniform(4, 10))
+                            except Exception as e:
+                                stats["errors"] += 1
+                                logger.warning(f"[Enrichment] Web error {c.nombre}: {e}")
+                                await asyncio.sleep(random.uniform(10, 30))
+                        await db.commit()
+                        offset += 100
+                        logger.info(f"[Enrichment] Web: {stats['web_attempted']}/{total}, found: {stats['web_found']}")
+
+        if _enrichment_stop:
+            logger.info(f"[Enrichment] Stopped by user: {stats}")
+        else:
+            logger.info(f"[Enrichment] Completed: {stats}")
+    except Exception as e:
+        logger.error(f"[Enrichment] Fatal error: {e}")
+    finally:
+        _enrichment_running = False
+        _enrichment_stop = False
+    return stats
+
+
+def is_enrichment_running() -> bool:
+    return _enrichment_running
 
 
 def start_scheduler(hour: int = 10, minute: int = 0):

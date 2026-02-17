@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Carga de datos - FENIX B2B Prospector{% endblock %}
+{% block title %}Carga de datos - FENIX Prospector{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -28,75 +28,83 @@
                     class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition">
                 Iniciar carga
             </button>
-            <button type="button"
+            <button type="button" id="btn-today"
                     onclick="triggerToday()"
                     class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
                 Solo hoy
             </button>
             <span id="trigger-status" class="text-sm text-gray-500"></span>
         </form>
+        <div id="borme-progress" class="hidden mt-3 rounded-full bg-gray-100 h-2 overflow-hidden">
+            <div id="borme-progress-bar" class="h-full bg-brand-500 rounded-full transition-all duration-500" style="width:0%"></div>
+        </div>
     </div>
 
     <!-- BOE / PLACSP Quick Actions -->
     <div class="card p-6">
         <h2 class="text-base font-bold text-gray-900 mb-4">Otras fuentes</h2>
-        <div class="flex flex-wrap gap-3">
-            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-subsidies"
-                    hx-swap="none"
-                    hx-on::after-request="this.textContent='Actualizado!'">
-                Cargar Subvenciones BOE
-            </button>
-            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-tenders"
-                    hx-swap="none"
-                    hx-on::after-request="this.textContent='Actualizado!'">
-                Cargar Licitaciones PLACSP
-            </button>
-            <button class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-judicial"
-                    hx-swap="none"
-                    hx-on::after-request="this.textContent='Actualizado!'">
-                Cargar Judiciales BOE
-            </button>
+        <div class="space-y-3">
+            <div class="fetch-action" id="action-subsidies">
+                <div class="flex items-center gap-3">
+                    <button onclick="fetchSource('subsidies')"
+                            class="fetch-btn px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm min-w-[220px]">
+                        Cargar Subvenciones BOE
+                    </button>
+                    <span class="fetch-result text-sm text-gray-500"></span>
+                </div>
+                <div class="progress-wrap hidden mt-2 rounded-full bg-gray-100 h-2 overflow-hidden">
+                    <div class="progress-bar h-full bg-green-500 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="fetch-action" id="action-tenders">
+                <div class="flex items-center gap-3">
+                    <button onclick="fetchSource('tenders')"
+                            class="fetch-btn px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm min-w-[220px]">
+                        Cargar Licitaciones PLACSP
+                    </button>
+                    <span class="fetch-result text-sm text-gray-500"></span>
+                </div>
+                <div class="progress-wrap hidden mt-2 rounded-full bg-gray-100 h-2 overflow-hidden">
+                    <div class="progress-bar h-full bg-green-500 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="fetch-action" id="action-judicial">
+                <div class="flex items-center gap-3">
+                    <button onclick="fetchSource('judicial')"
+                            class="fetch-btn px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition shadow-sm min-w-[220px]">
+                        Cargar Judiciales BOE
+                    </button>
+                    <span class="fetch-result text-sm text-gray-500"></span>
+                </div>
+                <div class="progress-wrap hidden mt-2 rounded-full bg-gray-100 h-2 overflow-hidden">
+                    <div class="progress-bar h-full bg-amber-500 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- CIF Enrichment -->
+    <!-- Enrichment -->
     <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h2 class="text-base font-bold text-gray-900">Enriquecimiento de CIF</h2>
-                <p class="text-xs text-gray-400 mt-0.5">Busca CIF autom&aacute;ticamente para empresas sin CIF (APIEmpresas.es)</p>
+                <h2 class="text-base font-bold text-gray-900">Enriquecimiento</h2>
+                <p class="text-xs text-gray-400 mt-0.5">Busca CIF (Google), web, email y tel&eacute;fono para todas las empresas sin datos</p>
             </div>
             <div id="cif-stats" class="text-right">
                 <span class="text-xs text-gray-400">Cargando cobertura...</span>
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-            <button id="btn-enrich-cif" onclick="enrichCif()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
-                Buscar CIF (lote de 50)
-            </button>
-            <span id="cif-status" class="text-sm text-gray-500"></span>
-        </div>
-    </div>
-
-    <!-- Web Enrichment -->
-    <div class="card p-6">
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <h2 class="text-base font-bold text-gray-900">Enriquecimiento Web</h2>
-                <p class="text-xs text-gray-400 mt-0.5">Busca en Google la web de la empresa y extrae CIF, email y tel&eacute;fono del aviso legal</p>
-            </div>
-            <div id="web-stats" class="text-right">
-                <span class="text-xs text-gray-400">Cargando...</span>
-            </div>
+        <div id="web-stats" class="mb-3">
+            <span class="text-xs text-gray-400">Cargando...</span>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-            <button id="btn-enrich-web" onclick="enrichWeb()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
-                Buscar en web (lote de 20)
+            <button id="btn-enrich" onclick="startEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Iniciar enriquecimiento completo
             </button>
-            <span id="web-status" class="text-sm text-gray-500"></span>
+            <button id="btn-stop-enrich" onclick="stopEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
+                Parar
+            </button>
+            <span id="enrich-status" class="text-sm text-gray-500"></span>
         </div>
     </div>
 
@@ -110,37 +118,106 @@
 </div>
 
 <script>
+/* === Progress bar helpers === */
+function animateProgress(barEl, wrapEl, durationMs) {
+    wrapEl.classList.remove('hidden');
+    barEl.style.width = '0%';
+    const steps = [10, 25, 40, 55, 65, 75, 82, 88, 92];
+    let i = 0;
+    const interval = durationMs / steps.length;
+    const timer = setInterval(() => {
+        if (i < steps.length) { barEl.style.width = steps[i] + '%'; i++; }
+        else clearInterval(timer);
+    }, interval);
+    return timer;
+}
+
+function completeProgress(barEl, wrapEl, timer) {
+    clearInterval(timer);
+    barEl.style.width = '100%';
+    setTimeout(() => { wrapEl.classList.add('hidden'); barEl.style.width = '0%'; }, 1500);
+}
+
+/* === Otras fuentes (BOE subsidies, PLACSP tenders, Judicial) === */
+const sourceConfig = {
+    subsidies: { url: '/api/opportunities/fetch-subsidies', label: 'Cargar Subvenciones BOE' },
+    tenders:   { url: '/api/opportunities/fetch-tenders',   label: 'Cargar Licitaciones PLACSP' },
+    judicial:  { url: '/api/opportunities/fetch-judicial',  label: 'Cargar Judiciales BOE' },
+};
+
+async function fetchSource(key) {
+    const wrap = document.querySelector('#action-' + key);
+    const btn = wrap.querySelector('.fetch-btn');
+    const result = wrap.querySelector('.fetch-result');
+    const progressWrap = wrap.querySelector('.progress-wrap');
+    const progressBar = wrap.querySelector('.progress-bar');
+    const cfg = sourceConfig[key];
+
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    btn.textContent = 'Actualizando...';
+    result.textContent = '';
+    const timer = animateProgress(progressBar, progressWrap, 15000);
+
+    try {
+        const resp = await fetch(cfg.url, { method: 'POST' });
+        const data = await resp.json();
+        completeProgress(progressBar, progressWrap, timer);
+        const fetched = data.fetched || 0;
+        const newCount = data.new || 0;
+        result.innerHTML = '<span class="text-green-600 font-semibold">Actualizado</span> &mdash; ' + fetched + ' encontrados, ' + newCount + ' nuevos';
+        btn.textContent = cfg.label;
+    } catch(e) {
+        completeProgress(progressBar, progressWrap, timer);
+        result.innerHTML = '<span class="text-red-600 font-semibold">Error:</span> ' + e.message;
+        btn.textContent = cfg.label;
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+    }
+}
+
+/* === BORME Ingestion === */
 async function triggerIngestion() {
     const desde = document.getElementById('fecha_desde').value;
     const hasta = document.getElementById('fecha_hasta').value;
     if (!desde || !hasta) { alert('Selecciona ambas fechas'); return; }
-
-    const statusEl = document.getElementById('trigger-status');
-    statusEl.textContent = 'Iniciando...';
-
-    try {
-        const resp = await fetch('/api/ingestion/trigger', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({fecha_desde: desde, fecha_hasta: hasta})
-        });
-        const data = await resp.json();
-        statusEl.textContent = data.message || data.error || 'OK';
-    } catch(e) {
-        statusEl.textContent = 'Error: ' + e.message;
-    }
+    await _runBorme('/api/ingestion/trigger', 'POST',
+        JSON.stringify({fecha_desde: desde, fecha_hasta: hasta}), 'btn-ingest');
 }
 
 async function triggerToday() {
+    await _runBorme('/api/ingestion/trigger-today', 'POST', null, 'btn-today');
+}
+
+async function _runBorme(url, method, body, btnId) {
     const statusEl = document.getElementById('trigger-status');
-    statusEl.textContent = 'Iniciando...';
+    const btn = document.getElementById(btnId);
+    const progressWrap = document.getElementById('borme-progress');
+    const progressBar = document.getElementById('borme-progress-bar');
+    const origText = btn.textContent;
+
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    btn.textContent = 'Cargando...';
+    statusEl.textContent = '';
+    const headers = body ? {'Content-Type': 'application/json'} : {};
+    const timer = animateProgress(progressBar, progressWrap, 30000);
 
     try {
-        const resp = await fetch('/api/ingestion/trigger-today', {method: 'POST'});
+        const resp = await fetch(url, { method, headers, body });
         const data = await resp.json();
-        statusEl.textContent = data.message || data.error || 'OK';
+        completeProgress(progressBar, progressWrap, timer);
+        statusEl.innerHTML = data.error
+            ? '<span class="text-red-600">' + data.error + '</span>'
+            : '<span class="text-green-600 font-semibold">Actualizado</span> &mdash; ' + (data.message || 'OK');
     } catch(e) {
-        statusEl.textContent = 'Error: ' + e.message;
+        completeProgress(progressBar, progressWrap, timer);
+        statusEl.innerHTML = '<span class="text-red-600">Error: ' + e.message + '</span>';
+    } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
     }
 }
 
@@ -156,26 +233,10 @@ document.getElementById('fecha_desde').value = weekAgo;
         const resp = await fetch('/api/ingestion/cif-stats');
         const data = await resp.json();
         document.getElementById('cif-stats').innerHTML =
-            '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + data.coverage_pct + '%</span> <span class="text-gray-400">cobertura</span></p>' +
+            '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + data.coverage_pct + '%</span> <span class="text-gray-400">cobertura CIF</span></p>' +
             '<p class="text-[10px] text-gray-400">' + data.with_cif + ' con CIF / ' + data.without_cif + ' sin CIF</p>';
     } catch(e) {}
 })();
-
-async function enrichCif() {
-    const statusEl = document.getElementById('cif-status');
-    statusEl.textContent = 'Buscando CIF...';
-    try {
-        const resp = await fetch('/api/ingestion/enrich-cif', { method: 'POST' });
-        const data = await resp.json();
-        if (data.error) {
-            statusEl.textContent = data.error;
-        } else {
-            statusEl.textContent = data.message;
-        }
-    } catch(e) {
-        statusEl.textContent = 'Error: ' + e.message;
-    }
-}
 
 // Load web stats
 (async function() {
@@ -187,13 +248,55 @@ async function enrichCif() {
     } catch(e) {}
 })();
 
-async function enrichWeb() {
-    const statusEl = document.getElementById('web-status');
-    statusEl.textContent = 'Buscando webs...';
+/* === Enrichment === */
+function showRunningState() {
+    document.getElementById('btn-enrich').textContent = 'En ejecuci\u00f3n...';
+    document.getElementById('btn-enrich').disabled = true;
+    document.getElementById('btn-enrich').classList.add('opacity-50');
+    document.getElementById('btn-stop-enrich').classList.remove('hidden');
+}
+
+function showIdleState() {
+    document.getElementById('btn-enrich').textContent = 'Iniciar enriquecimiento completo';
+    document.getElementById('btn-enrich').disabled = false;
+    document.getElementById('btn-enrich').classList.remove('opacity-50');
+    document.getElementById('btn-stop-enrich').classList.add('hidden');
+}
+
+(async function() {
     try {
-        const resp = await fetch('/api/ingestion/enrich-web', { method: 'POST' });
+        const resp = await fetch('/api/ingestion/enrichment-status');
         const data = await resp.json();
-        statusEl.textContent = data.message || data.error || 'OK';
+        if (data.running) {
+            showRunningState();
+            document.getElementById('enrich-status').textContent = 'Proceso en segundo plano activo';
+        }
+    } catch(e) {}
+})();
+
+async function startEnrichment() {
+    const statusEl = document.getElementById('enrich-status');
+    try {
+        const resp = await fetch('/api/ingestion/enrich-cif', { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) {
+            statusEl.textContent = data.error;
+        } else {
+            statusEl.textContent = data.message;
+            showRunningState();
+        }
+    } catch(e) {
+        statusEl.textContent = 'Error: ' + e.message;
+    }
+}
+
+async function stopEnrichment() {
+    const statusEl = document.getElementById('enrich-status');
+    try {
+        const resp = await fetch('/api/ingestion/stop-enrichment', { method: 'POST' });
+        const data = await resp.json();
+        statusEl.textContent = data.message || data.error;
+        showIdleState();
     } catch(e) {
         statusEl.textContent = 'Error: ' + e.message;
     }

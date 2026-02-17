@@ -19,6 +19,23 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Setup PostgreSQL full-text search
+    if settings.database_url.startswith("postgresql"):
+        from sqlalchemy import text
+        from app.services.fts_service import (
+            CREATE_SEARCH_VECTOR_COLUMN,
+            CREATE_GIN_INDEX,
+            CREATE_SEARCH_TRIGGER_FUNCTION,
+            DROP_SEARCH_TRIGGER,
+            CREATE_SEARCH_TRIGGER,
+        )
+        async with engine.begin() as conn:
+            await conn.execute(text(CREATE_SEARCH_VECTOR_COLUMN))
+            await conn.execute(text(CREATE_SEARCH_TRIGGER_FUNCTION))
+            await conn.execute(text(DROP_SEARCH_TRIGGER))
+            await conn.execute(text(CREATE_SEARCH_TRIGGER))
+            await conn.execute(text(CREATE_GIN_INDEX))
+
     # Seed reference data
     from app.db.seed_cnae import seed_all
     await seed_all()

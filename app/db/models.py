@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     Float,
@@ -31,15 +32,15 @@ class User(Base):
     empresa: Mapped[str] = mapped_column(Text, nullable=False, default="")
     empresa_cif: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    email_verified: Mapped[bool] = mapped_column(Integer, default=False)
-    phone_verified: Mapped[bool] = mapped_column(Integer, default=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, default="user")  # admin, user
     plan: Mapped[str] = mapped_column(Text, default="free")  # free, pro, enterprise
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Integer, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     searches_this_month: Mapped[int] = mapped_column(Integer, default=0)
     exports_this_month: Mapped[int] = mapped_column(Integer, default=0)
     month_reset: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # YYYY-MM
@@ -208,6 +209,9 @@ class Subsidy(Base):
     beneficiarios: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sector: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ambito: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cnae_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comunidad_autonoma: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -216,6 +220,7 @@ class Subsidy(Base):
         Index("idx_subsidies_fecha", "fecha_publicacion"),
         Index("idx_subsidies_organismo", "organismo"),
         Index("idx_subsidies_sector", "sector"),
+        Index("idx_subsidies_ccaa", "comunidad_autonoma"),
     )
 
 
@@ -236,6 +241,9 @@ class Tender(Base):
     importe_estimado: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     lugar_ejecucion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cpv_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cnae_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comunidad_autonoma: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -245,6 +253,7 @@ class Tender(Base):
         Index("idx_tenders_organismo", "organismo"),
         Index("idx_tenders_estado", "estado"),
         Index("idx_tenders_tipo", "tipo_contrato"),
+        Index("idx_tenders_ccaa", "comunidad_autonoma"),
     )
 
 
@@ -297,6 +306,25 @@ class Watchlist(Base):
     )
 
 
+class ActTypeWatch(Base):
+    """Suscripciones globales a tipos de acto (ej: Constitución, Situación concursal)."""
+    __tablename__ = "act_type_watches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tipo_acto: Mapped[str] = mapped_column(Text, nullable=False)
+    filtro_provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "tipo_acto", "filtro_provincia", name="uq_act_type_watch"),
+        Index("idx_act_type_watch_user", "user_id"),
+    )
+
+
 class Alert(Base):
     """Alertas generadas cuando una empresa vigilada tiene actividad nueva."""
     __tablename__ = "alerts"
@@ -308,7 +336,7 @@ class Alert(Base):
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
     titulo: Mapped[str] = mapped_column(Text, nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    leida: Mapped[bool] = mapped_column(Integer, default=False)
+    leida: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -332,7 +360,7 @@ class ApiKey(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     name: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    is_active: Mapped[bool] = mapped_column(Integer, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -354,4 +382,51 @@ class ExportLog(Base):
     record_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
+    )
+
+
+class ERPConnection(Base):
+    """Conexión ERP configurada por el usuario (Odoo, SAP, Holded…)."""
+    __tablename__ = "erp_connections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)  # odoo, sap, holded, webhook
+    name: Mapped[str] = mapped_column(Text, nullable=False, default="Mi ERP")
+    url: Mapped[str] = mapped_column(Text, nullable=False)  # Base URL del ERP
+    database: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # DB name (Odoo)
+    username: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # API key o password
+    field_mapping: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON field mapping
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_sync_status: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # ok, error
+    last_sync_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_erp_conn_user", "user_id"),
+    )
+
+
+class ERPSyncLog(Base):
+    """Historial de sincronizaciones con ERP."""
+    __tablename__ = "erp_sync_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    connection_id: Mapped[int] = mapped_column(ForeignKey("erp_connections.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)  # push_companies, push_leads
+    companies_sent: Mapped[int] = mapped_column(Integer, default=0)
+    companies_created: Mapped[int] = mapped_column(Integer, default=0)
+    companies_updated: Mapped[int] = mapped_column(Integer, default=0)
+    companies_failed: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")  # pending, running, ok, error
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_erp_sync_conn", "connection_id"),
+        Index("idx_erp_sync_user", "user_id"),
     )

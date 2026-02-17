@@ -1,4 +1,4 @@
-"""FTS5 full-text search with Spanish business synonym expansion."""
+"""PostgreSQL full-text search with Spanish business synonym expansion."""
 from __future__ import annotations
 
 import logging
@@ -70,10 +70,10 @@ def expand_query(query: str) -> list[str]:
 
 
 def build_fts_match(query: str) -> str:
-    """Build an FTS5 MATCH expression with synonym expansion.
+    """Build an FTS5 MATCH expression with synonym expansion for SQLite.
 
-    Example: "construccion madrid" →
-      '(construccion OR obras OR edificacion OR constructora OR reformas) madrid'
+    Example: "construccion madrid" ->
+      '(construccion OR obras OR edificacion OR constructora OR reformas) AND madrid*'
     """
     q_normalized = unidecode(query.strip()).upper()
     words = q_normalized.split()
@@ -84,53 +84,83 @@ def build_fts_match(query: str) -> str:
             continue
         if word in _SYNONYM_MAP:
             synonyms = _SYNONYM_MAP[word]
-            # FTS5 OR expression
-            or_expr = " OR ".join(f'"{s}"' for s in synonyms)
-            parts.append(f"({or_expr})")
+            or_terms = " OR ".join(f'"{s.lower()}"' for s in synonyms)
+            parts.append(f"({or_terms})")
         else:
-            # Use prefix match for individual words
-            parts.append(f'"{word}"*')
+            parts.append(f"{word.lower()}*")
 
     if not parts:
-        return f'"{q_normalized}"*'
+        return f"{q_normalized.lower()}*"
 
-    return " ".join(parts)
+    return " AND ".join(parts)
 
 
-# --- FTS5 table management ---
+def build_pg_tsquery(query: str) -> str:
+    """Build a PostgreSQL tsquery expression with synonym expansion.
 
-CREATE_FTS_TABLE = """
-CREATE VIRTUAL TABLE IF NOT EXISTS companies_fts USING fts5(
-    nombre_normalizado,
-    objeto_social,
-    content='companies',
-    content_rowid='id',
-    tokenize='unicode61 remove_diacritics 2'
-);
+    Example: "construccion madrid" ->
+      "(construccion | obras | edificacion | constructora | reformas) & madrid:*"
+    """
+    q_normalized = unidecode(query.strip()).upper()
+    words = q_normalized.split()
+
+    parts = []
+    for word in words:
+        if len(word) < 2:
+            continue
+        word_lower = word.lower()
+        if word in _SYNONYM_MAP:
+            synonyms = _SYNONYM_MAP[word]
+            # PostgreSQL OR syntax with |
+            or_expr = " | ".join(s.lower().replace(" ", " <-> ") for s in synonyms)
+            parts.append(f"({or_expr})")
+        else:
+            # Prefix match for individual words
+            parts.append(f"{word_lower}:*")
+
+    if not parts:
+        return f"{q_normalized.lower()}:*"
+
+    # AND all parts together
+    return " & ".join(parts)
+
+
+# --- PostgreSQL FTS setup (run once at startup) ---
+
+CREATE_SEARCH_VECTOR_COLUMN = """
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS search_vector tsvector;
 """
 
-POPULATE_FTS = """
-INSERT INTO companies_fts(rowid, nombre_normalizado, objeto_social)
-SELECT id, COALESCE(nombre_normalizado, ''), COALESCE(objeto_social, '')
-FROM companies;
+POPULATE_SEARCH_VECTOR = """
+UPDATE companies SET search_vector =
+    setweight(to_tsvector('fenix_spanish', COALESCE(nombre_normalizado, '')), 'A') ||
+    setweight(to_tsvector('fenix_spanish', COALESCE(objeto_social, '')), 'B')
+WHERE search_vector IS NULL;
 """
 
-# Triggers to keep FTS in sync
-CREATE_TRIGGERS = """
-CREATE TRIGGER IF NOT EXISTS companies_fts_insert AFTER INSERT ON companies BEGIN
-    INSERT INTO companies_fts(rowid, nombre_normalizado, objeto_social)
-    VALUES (new.id, COALESCE(new.nombre_normalizado, ''), COALESCE(new.objeto_social, ''));
-END;
+CREATE_GIN_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_companies_search_vector
+ON companies USING gin(search_vector);
+"""
 
-CREATE TRIGGER IF NOT EXISTS companies_fts_update AFTER UPDATE ON companies BEGIN
-    INSERT INTO companies_fts(companies_fts, rowid, nombre_normalizado, objeto_social)
-    VALUES ('delete', old.id, COALESCE(old.nombre_normalizado, ''), COALESCE(old.objeto_social, ''));
-    INSERT INTO companies_fts(rowid, nombre_normalizado, objeto_social)
-    VALUES (new.id, COALESCE(new.nombre_normalizado, ''), COALESCE(new.objeto_social, ''));
+CREATE_SEARCH_TRIGGER_FUNCTION = """
+CREATE OR REPLACE FUNCTION companies_search_vector_update() RETURNS trigger AS $$
+BEGIN
+    NEW.search_vector :=
+        setweight(to_tsvector('fenix_spanish', COALESCE(NEW.nombre_normalizado, '')), 'A') ||
+        setweight(to_tsvector('fenix_spanish', COALESCE(NEW.objeto_social, '')), 'B');
+    RETURN NEW;
 END;
+$$ LANGUAGE plpgsql;
+"""
 
-CREATE TRIGGER IF NOT EXISTS companies_fts_delete AFTER DELETE ON companies BEGIN
-    INSERT INTO companies_fts(companies_fts, rowid, nombre_normalizado, objeto_social)
-    VALUES ('delete', old.id, COALESCE(old.nombre_normalizado, ''), COALESCE(old.objeto_social, ''));
-END;
+DROP_SEARCH_TRIGGER = """
+DROP TRIGGER IF EXISTS trig_companies_search_vector ON companies;
+"""
+
+CREATE_SEARCH_TRIGGER = """
+CREATE TRIGGER trig_companies_search_vector
+    BEFORE INSERT OR UPDATE OF nombre_normalizado, objeto_social ON companies
+    FOR EACH ROW
+    EXECUTE FUNCTION companies_search_vector_update();
 """

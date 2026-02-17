@@ -165,6 +165,15 @@ def _parse_entry(entry, atom_ns: str, nsmap: dict) -> Optional[dict]:
         cpv_code = codice_data.get("cpv_code", "")
         fecha_limite = codice_data.get("fecha_limite")
 
+    # Derive CCAA, provincia, CNAE
+    from app.services.geo_sector import (
+        cpv_to_cnae, detect_ccaa_from_text,
+        detect_provincia_from_text, provincia_to_ccaa,
+    )
+    provincia = detect_provincia_from_text(lugar or organismo or "")
+    ccaa = provincia_to_ccaa(provincia) if provincia else detect_ccaa_from_text(lugar or organismo or "")
+    cnae = cpv_to_cnae(cpv_code) if cpv_code else None
+
     return {
         "expediente": expediente,
         "titulo": titulo[:500],
@@ -178,6 +187,9 @@ def _parse_entry(entry, atom_ns: str, nsmap: dict) -> Optional[dict]:
         "importe_estimado": importe,
         "lugar_ejecucion": lugar or None,
         "cpv_code": cpv_code or None,
+        "cnae_codes": cnae,
+        "comunidad_autonoma": ccaa,
+        "provincia": provincia,
     }
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 """Company search and CRUD service."""
 import logging
 import math
+import re
 from datetime import datetime, time
 
 from sqlalchemy import func, select, text
@@ -12,6 +13,12 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.db.models import Act, Company, Officer
 from app.schemas.search import SearchFilters
+
+# CIF pattern: letter + 7 digits + control (digit or letter)
+_CIF_RE = re.compile(r'^[ABCDEFGHJKLMNPQRSUVW]\d{7}[0-9A-J]$', re.IGNORECASE)
+
+def _is_pg() -> bool:
+    return settings.database_url.startswith("postgresql")
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +101,7 @@ def _build_typesense_sort(filters: SearchFilters) -> str:
 
 
 async def _search_via_typesense(filters: SearchFilters, db: AsyncSession) -> dict | None:
-    """Intenta buscar via Typesense. Retorna None si falla (fallback a SQLite)."""
+    """Intenta buscar via Typesense. Retorna None si falla (fallback a DB)."""
     try:
         from app.services.typesense_service import search_typesense
 
@@ -141,44 +148,52 @@ async def _search_via_typesense(filters: SearchFilters, db: AsyncSession) -> dic
         }
 
     except Exception:
-        logger.warning("Typesense no disponible, fallback a SQLite", exc_info=True)
+        logger.warning("Typesense no disponible, fallback a DB", exc_info=True)
         return None
 
 
 # ---------------------------------------------------------------------------
-# SQLite fallback search (original logic)
+# Database search (PostgreSQL tsvector + LIKE fallback)
 # ---------------------------------------------------------------------------
 
-async def _search_via_sqlite(filters: SearchFilters, db: AsyncSession) -> dict:
-    """Busqueda directa en SQLite (FTS5 + LIKE fallback)."""
+async def _search_via_db(filters: SearchFilters, db: AsyncSession) -> dict:
+    """Busqueda directa en DB (PostgreSQL FTS + LIKE fallback)."""
     conditions = []
 
     if filters.q:
-        q_upper = filters.q.strip().upper()
-        if len(q_upper) <= 3:
+        q_stripped = filters.q.strip()
+        q_upper = q_stripped.upper()
+
+        # Direct CIF lookup (instant via index)
+        if _CIF_RE.match(q_upper):
+            conditions.append(Company.cif == q_upper)
+        elif len(q_upper) <= 3:
             conditions.append(Company.nombre_normalizado.like(f"{q_upper}%"))
         else:
             try:
-                from app.services.fts_service import build_fts_match
-                fts_expr = build_fts_match(filters.q)
-                fts_result = await db.execute(
-                    text("SELECT rowid FROM companies_fts WHERE companies_fts MATCH :q ORDER BY rank LIMIT 5000"),
-                    {"q": fts_expr},
-                )
-                fts_ids = [row[0] for row in fts_result.fetchall()]
-                if fts_ids:
-                    conditions.append(Company.id.in_(fts_ids))
-                else:
+                if _is_pg():
+                    from app.services.fts_service import build_pg_tsquery
+                    tsquery_expr = build_pg_tsquery(q_stripped)
                     conditions.append(
-                        (Company.nombre_normalizado.like(f"%{q_upper}%"))
-                        | (Company.objeto_social.ilike(f"%{filters.q}%"))
+                        text(
+                            "search_vector @@ to_tsquery(:fts_config, :fts_q)"
+                        ).bindparams(fts_config=settings.pg_fts_config, fts_q=tsquery_expr)
+                    )
+                else:
+                    from app.services.fts_service import build_fts_match
+                    fts_expr = build_fts_match(q_stripped)
+                    conditions.append(
+                        text(
+                            "companies.id IN (SELECT rowid FROM companies_fts "
+                            "WHERE companies_fts MATCH :fts_q)"
+                        ).bindparams(fts_q=fts_expr)
                     )
             except Exception:
-                logger.debug("FTS5 not available, falling back to LIKE")
+                logger.debug("FTS not available, falling back to LIKE", exc_info=True)
                 conditions.append(
                     (Company.nombre_normalizado.like(f"%{q_upper}%"))
-                    | (Company.objeto_social.ilike(f"%{filters.q}%"))
-                    | (Company.cif.ilike(f"%{filters.q}%"))
+                    | (Company.objeto_social.ilike(f"%{q_stripped}%"))
+                    | (Company.cif.ilike(f"%{q_stripped}%"))
                 )
 
     if filters.cif:
@@ -260,8 +275,8 @@ async def _search_via_sqlite(filters: SearchFilters, db: AsyncSession) -> dict:
 async def search_companies(filters: SearchFilters, db: AsyncSession) -> dict:
     """Search companies with filters. Returns {items, total, page, pages, per_page}.
 
-    Tries Typesense first (fast). Falls back to SQLite if Typesense is unavailable.
-    The tipo_acto filter (join with Acts) is only supported in the SQLite path.
+    Tries Typesense first (fast). Falls back to DB if Typesense is unavailable.
+    The tipo_acto filter (join with Acts) is only supported in the DB path.
     """
     use_typesense = bool(settings.typesense_url) and not filters.tipo_acto
 
@@ -270,7 +285,7 @@ async def search_companies(filters: SearchFilters, db: AsyncSession) -> dict:
         if result is not None:
             return result
 
-    return await _search_via_sqlite(filters, db)
+    return await _search_via_db(filters, db)
 
 
 async def get_company(company_id: int, db: AsyncSession) -> Company | None:

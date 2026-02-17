@@ -47,11 +47,12 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
     estado_result = await db.execute(estado_query)
     by_estado = {row[0]: row[1] for row in estado_result.all()}
 
-    # Recent incorporations
+    # Recent incorporations (distinct to avoid duplicates from multiple acts)
     recent_query = (
         select(Company)
         .join(Act)
         .where(Act.tipo_acto == "Constitución")
+        .distinct()
         .order_by(Company.fecha_ultima_publicacion.desc())
         .limit(10)
     )

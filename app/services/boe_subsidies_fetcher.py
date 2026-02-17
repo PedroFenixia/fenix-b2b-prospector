@@ -68,13 +68,17 @@ def _parse_subsidies_from_sumario(fecha: date, xml_content: bytes) -> list[dict]
 
     # Keywords that indicate a subsidy/grant
     SUBSIDY_KW = [
-        "subvenci", "ayuda", "convocatoria", "bases reguladora",
+        "subvenci", "ayudas", "bases reguladora",
         "becas", "financiaci", "incentivo",
-        "concesión de subvenci", "concesión de ayuda",
-        "concesión directa",
+        "concesión directa", "línea de ayuda",
     ]
-    # False-positive exclusions (water/port concessions)
-    EXCLUDE_KW = ["hidrogr", "portuaria", "confederación", "aguas"]
+    # False-positive exclusions
+    EXCLUDE_KW = [
+        "hidrogr", "portuaria", "confederación",
+        "regantes", "junta general", "asamblea",
+        "convocatoria de junta", "convocatoria de sesión",
+        "mutualidad", "funcionarios civiles",
+    ]
 
     for seccion in root.iter("seccion"):
         codigo = seccion.get("codigo", "")
@@ -175,11 +179,59 @@ async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[
                 item["beneficiarios"] = materia.text.strip()[:500]
                 break
 
+        # Extract comunidad_autonoma and provincia
+        from app.services.geo_sector import detect_ccaa_from_text, detect_provincia_from_text
+        combined = f"{item.get('organismo', '')} {item.get('ambito', '')} {item.get('titulo', '')}"
+        ccaa = detect_ccaa_from_text(combined)
+        if ccaa:
+            item["comunidad_autonoma"] = ccaa
+        prov = detect_provincia_from_text(combined)
+        if prov:
+            item["provincia"] = prov
+
+        # Detect CNAE from text
+        cnae = _detect_cnae_from_text(f"{item.get('titulo', '')} {item.get('descripcion', '')}")
+        if cnae:
+            item["cnae_codes"] = cnae
+
         return item
 
     except Exception as e:
         logger.warning(f"Error fetching detail for {boe_id}: {e}")
         return item
+
+
+# Keyword -> CNAE code mapping for subsidies
+_SUBSIDY_CNAE_MAP = [
+    (["agricultur", "agrari", "ganad", "pesca", "forestal"], "01"),
+    (["industria", "manufactur", "fabricación"], "10"),
+    (["construcción", "edificación", "obra"], "41"),
+    (["transporte", "logística", "movilidad"], "49"),
+    (["turismo", "hostelería", "alojamiento"], "55"),
+    (["tecnología", "digital", "informátic", "software", "TIC"], "62"),
+    (["investigación", "I+D", "innovación", "ciencia"], "72"),
+    (["educación", "formación", "enseñanza"], "85"),
+    (["sanidad", "salud", "sanitari", "médic", "farmac"], "86"),
+    (["energía", "renovable", "eficiencia energética"], "35"),
+    (["comercio", "exportación", "internacionalización"], "46"),
+    (["cultura", "patrimonio", "artístic"], "90"),
+    (["medio ambiente", "residuo", "reciclaje", "sostenib"], "38"),
+    (["empleo", "contratación", "autónomo", "emprendim"], "78"),
+    (["vivienda", "rehabilitación", "accesibilidad"], "41"),
+]
+
+
+def _detect_cnae_from_text(text: str) -> Optional[str]:
+    """Detect CNAE codes from subsidy text content."""
+    if not text:
+        return None
+    text_lower = text.lower()
+    codes = []
+    for keywords, cnae in _SUBSIDY_CNAE_MAP:
+        if any(kw.lower() in text_lower for kw in keywords):
+            if cnae not in codes:
+                codes.append(cnae)
+    return ",".join(codes) if codes else None
 
 
 def _extract_importe(text: str) -> Optional[float]:

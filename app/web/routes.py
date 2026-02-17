@@ -23,7 +23,7 @@ from app.schemas.search import SearchFilters
 from app.services.company_service import get_company, search_companies
 from app.services.ingestion_orchestrator import get_ingestion_status
 from app.services.opportunity_service import cross_search, search_judicial, search_subsidies, search_tenders
-from app.services.watchlist_service import count_unread_alerts, get_alerts, get_watchlist, is_watched
+from app.services.watchlist_service import count_unread_alerts, get_act_type_watches, get_alerts, get_watchlist, is_watched
 from app.utils.cnae import get_all_cnae
 from app.utils.provinces import get_all_provinces
 
@@ -533,8 +533,12 @@ async def watchlist_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = get_current_user(request)
     user_id = user["user_id"] if user else None
     unread = await count_unread_alerts(db, user_id=user_id)
+    act_type_watches = await get_act_type_watches(user_id, db) if user_id else []
+    provinces = get_all_provinces()
+    from app.services.borme_parser import ACT_TYPES
     return templates.TemplateResponse("watchlist.html", _ctx(
         request, unread_count=unread, active_page="watchlist",
+        act_type_watches=act_type_watches, provinces=provinces, act_types=ACT_TYPES,
     ))
 
 

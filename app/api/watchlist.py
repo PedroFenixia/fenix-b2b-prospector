@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_db
 from app.services.watchlist_service import (
+    add_act_type_watch,
     add_to_watchlist,
     mark_alert_read,
     mark_all_read,
+    remove_act_type_watch,
     remove_from_watchlist,
 )
 
@@ -80,3 +82,36 @@ async def api_mark_all_read(request: Request, db: AsyncSession = Depends(get_db)
     uid = _user_id(request)
     count = await mark_all_read(db, user_id=uid)
     return {"ok": True, "count": count}
+
+
+class ActTypeWatchBody(BaseModel):
+    tipo_acto: str
+    filtro_provincia: str | None = None
+
+
+@router.post("/act-types")
+async def api_add_act_type_watch(
+    body: ActTypeWatchBody,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    uid = _user_id(request)
+    if not uid:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "Login requerido"}, status_code=401)
+    entry = await add_act_type_watch(uid, body.tipo_acto, db, body.filtro_provincia)
+    return {"ok": True, "id": entry.id}
+
+
+@router.delete("/act-types/{watch_id}")
+async def api_remove_act_type_watch(
+    watch_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    uid = _user_id(request)
+    if not uid:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "Login requerido"}, status_code=401)
+    removed = await remove_act_type_watch(watch_id, uid, db)
+    return {"ok": removed}

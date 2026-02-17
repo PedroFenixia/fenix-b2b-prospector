@@ -42,6 +42,35 @@ async def update_user(
     return {"ok": True, "user_id": user_id}
 
 
+@admin_router.post("/users")
+async def create_user_admin(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    if not _require_admin(request):
+        return JSONResponse({"error": "No autorizado"}, status_code=403)
+
+    from app.auth import create_user
+    body = await request.json()
+    email = body.get("email", "").strip()
+    nombre = body.get("nombre", "").strip()
+    password = body.get("password", "")
+    empresa = body.get("empresa", "")
+    plan = body.get("plan", "free")
+
+    if not email or not nombre or len(password) < 6:
+        return JSONResponse({"error": "Email, nombre y contraseña (min 6) requeridos"}, status_code=400)
+
+    from app.db.models import User
+    from sqlalchemy import select
+    existing = await db.scalar(select(User).where(User.email == email.lower()))
+    if existing:
+        return JSONResponse({"error": "Email ya registrado"}, status_code=409)
+
+    user = await create_user(email, nombre, password, db, empresa=empresa, plan=plan)
+    return {"ok": True, "user_id": user.id}
+
+
 @admin_router.post("/users/{user_id}/reset-password")
 async def reset_user_password(
     request: Request,

@@ -231,17 +231,27 @@ async def enrich_company_web(
     if not corporate_url:
         return result
 
-    result["web"] = corporate_url
-
     # 3. Fetch homepage
     homepage_html = await _fetch_page(corporate_url, client)
     if not homepage_html:
         return result
 
+    # 4. Verify the website belongs to this company (name must appear on the page)
+    homepage_text = BeautifulSoup(homepage_html, "html.parser").get_text(separator=" ", strip=True)
+    homepage_text_upper = unidecode(homepage_text).upper()
+    norm_name = _normalize_name(nombre)
+
+    if not norm_name or norm_name[:15] not in homepage_text_upper:
+        logger.info(f"[WebEnrich] {nombre}: web {corporate_url} does not mention company name, skipping")
+        return result
+
+    # Web confirmed as belonging to the company
+    result["web"] = corporate_url
+
     # Collect all text to analyze: homepage + legal pages
     all_texts = [homepage_html]
 
-    # 4. Find and fetch legal pages
+    # 5. Find and fetch legal pages
     legal_links = _find_legal_links(homepage_html, corporate_url)
     for link in legal_links[:3]:  # Max 3 legal pages
         legal_html = await _fetch_page(link, client)
@@ -249,7 +259,7 @@ async def enrich_company_web(
             all_texts.append(legal_html)
         await asyncio.sleep(0.5)
 
-    # 5. Extract data from all pages
+    # 6. Extract data from all pages
     all_cifs = []
     all_emails = []
     all_phones = []
@@ -261,10 +271,8 @@ async def enrich_company_web(
         all_emails.extend(_extract_emails(text))
         all_phones.extend(_extract_phones(text))
 
-    # 6. Validate CIF - check if company name appears near CIF on the page
+    # 7. Validate CIF - only accept if found alongside company name
     if all_cifs:
-        # Check if any page text contains both the CIF and a matching company name
-        norm_name = _normalize_name(nombre)
         for html in all_texts:
             soup = BeautifulSoup(html, "html.parser")
             page_text = soup.get_text(separator=" ", strip=True)
@@ -277,11 +285,7 @@ async def enrich_company_web(
             if result["cif"]:
                 break
 
-        # If name didn't match strictly, still use CIF if found on legal pages
-        if not result["cif"] and all_cifs:
-            result["cif"] = all_cifs[0]
-
-    # 7. Best email (prefer info@, contacto@, not noreply@)
+    # 8. Best email (prefer info@, contacto@, not noreply@)
     if all_emails:
         unique_emails = list(dict.fromkeys(all_emails))
         # Prioritize contact-like emails
@@ -299,7 +303,7 @@ async def enrich_company_web(
                     result["email"] = email
                     break
 
-    # 8. First valid phone
+    # 9. First valid phone
     if all_phones:
         result["telefono"] = all_phones[0]
 

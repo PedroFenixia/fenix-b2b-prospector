@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     export_dir: Path = Path("data/exports")
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///data/prospector.db"
+    database_url: str = "postgresql+asyncpg://fenix:F3n1x!PG2026@localhost:5432/fenix_prospector"
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    pg_fts_config: str = "fenix_spanish"
 
     # BOE API
     boe_api_base: str = "https://boe.es/datosabiertos/api"
@@ -23,8 +26,11 @@ class Settings(BaseSettings):
     scheduler_hour: int = 10
     scheduler_minute: int = 0
 
-    # CIF Enrichment (APIEmpresas.es - plan Sandbox gratuito)
+    # CIF Enrichment
     apiempresas_key: str = ""
+    # Proxies para enriquecimiento (separados por coma). Se rotan automáticamente.
+    # Ej: socks5://127.0.0.1:1080,socks5://127.0.0.1:1081,http://user:pass@proxy:8080
+    enrichment_proxies: str = ""
 
     # Auth
     admin_password: str = "FenixIA360!"
@@ -55,7 +61,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "noreply@fenixia.tech"
-    smtp_from_name: str = "FENIX B2B Prospector"
+    smtp_from_name: str = "FENIX Prospector"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

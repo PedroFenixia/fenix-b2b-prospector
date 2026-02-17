@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - FENIX B2B Prospector</title>
+    <title>Login - FENIX Prospector</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
                     colors: {
-                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#0d9488', 600: '#0f766e', 700: '#115e59', 800: '#134e4a' },
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 500: '#2563eb', 600: '#1d4ed8', 700: '#1e40af', 800: '#1e3a8a' },
                     }
                 }
             }
@@ -22,7 +22,7 @@
     </script>
     <style>
         body { -webkit-font-smoothing: antialiased; letter-spacing: -.01em; }
-        ::selection { background: #0d9488; color: #fff; }
+        ::selection { background: #2563eb; color: #fff; }
     </style>
 </head>
 <body class="h-full bg-gray-900 font-sans flex flex-col min-h-screen">
@@ -56,7 +56,7 @@
                                class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition">
                     </div>
                     <button type="submit"
-                            class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(13,148,136,.3)] hover:shadow-[0_6px_28px_rgba(13,148,136,.4)] hover:-translate-y-0.5 transform">
+                            class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(37,99,235,.3)] hover:shadow-[0_6px_28px_rgba(37,99,235,.4)] hover:-translate-y-0.5 transform">
                         Iniciar sesion
                     </button>
                 </form>
@@ -73,13 +73,13 @@
         <div class="max-w-4xl mx-auto">
             <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
                 <div class="flex items-center gap-4 text-xs">
-                    <a href="https://www.fenixia.tech" class="text-gray-500 hover:text-gray-300 transition" target="_blank">fenixia.tech</a>
+                    <a href="https://fenixia.tech" class="text-gray-500 hover:text-gray-300 transition" target="_blank">fenixia.tech</a>
                     <a href="mailto:info@fenixia.tech" class="text-gray-500 hover:text-gray-300 transition">info@fenixia.tech</a>
                 </div>
                 <div class="flex items-center gap-4 text-xs">
-                    <a href="https://www.fenixia.tech/terminos" class="text-gray-500 hover:text-gray-300 transition" target="_blank">T&eacute;rminos</a>
-                    <a href="https://www.fenixia.tech/privacidad" class="text-gray-500 hover:text-gray-300 transition" target="_blank">Privacidad</a>
-                    <a href="https://www.fenixia.tech/cookies" class="text-gray-500 hover:text-gray-300 transition" target="_blank">Cookies</a>
+                    <a href="/legal/terminos" class="text-gray-500 hover:text-gray-300 transition">T&eacute;rminos</a>
+                    <a href="/legal/privacidad" class="text-gray-500 hover:text-gray-300 transition">Privacidad</a>
+                    <a href="/legal/cookies" class="text-gray-500 hover:text-gray-300 transition">Cookies</a>
                 </div>
             </div>
             <p class="text-center text-gray-600 text-xs">&copy; 2026 FENIX IA SOLUTIONS &mdash; fenixia.tech &mdash; Todos los derechos reservados</p>

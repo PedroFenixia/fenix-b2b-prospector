@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.db.models import Act, Alert, Company, Watchlist
+from app.db.models import Act, ActTypeWatch, Alert, Company, Watchlist
 
 logger = logging.getLogger(__name__)
 
@@ -141,53 +141,152 @@ async def mark_all_read(db: AsyncSession, user_id: int | None = None) -> int:
     return result.rowcount
 
 
-async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
-    """Generar alertas para empresas vigiladas que tuvieron actividad en una fecha.
+async def add_act_type_watch(
+    user_id: int,
+    tipo_acto: str,
+    db: AsyncSession,
+    filtro_provincia: str | None = None,
+) -> ActTypeWatch | None:
+    """Crear suscripción global a un tipo de acto."""
+    existing = await db.scalar(
+        select(ActTypeWatch).where(
+            ActTypeWatch.user_id == user_id,
+            ActTypeWatch.tipo_acto == tipo_acto,
+            ActTypeWatch.filtro_provincia == filtro_provincia,
+        )
+    )
+    if existing:
+        existing.is_active = True
+        await db.commit()
+        return existing
+    entry = ActTypeWatch(
+        user_id=user_id,
+        tipo_acto=tipo_acto,
+        filtro_provincia=filtro_provincia or None,
+    )
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+    return entry
 
-    Respeta el filtro tipos_acto de cada watchlist entry (null = todos los tipos).
-    Genera alertas asignadas al user_id del watchlist entry.
+
+async def remove_act_type_watch(watch_id: int, user_id: int, db: AsyncSession) -> bool:
+    """Eliminar suscripción global a un tipo de acto."""
+    result = await db.execute(
+        delete(ActTypeWatch).where(
+            ActTypeWatch.id == watch_id,
+            ActTypeWatch.user_id == user_id,
+        )
+    )
+    await db.commit()
+    return result.rowcount > 0
+
+
+async def get_act_type_watches(user_id: int, db: AsyncSession) -> list[ActTypeWatch]:
+    """Obtener suscripciones activas de tipos de acto para un usuario."""
+    result = await db.scalars(
+        select(ActTypeWatch)
+        .where(ActTypeWatch.user_id == user_id, ActTypeWatch.is_active == True)
+        .order_by(ActTypeWatch.created_at.desc())
+    )
+    return result.all()
+
+
+async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
+    """Generar alertas para empresas vigiladas y suscripciones globales por tipo de acto.
+
+    Paso 1: Alertas de watchlist (empresas concretas).
+    Paso 2: Alertas de ActTypeWatch (tipos de acto globales).
+    Evita duplicados entre ambos pasos.
     """
     import json as _json
 
-    watchlist_entries = (await db.scalars(select(Watchlist))).all()
-    if not watchlist_entries:
-        return 0
-
-    # Build map: (company_id, user_id) -> allowed act types
-    watch_map: list[tuple[int, int | None, set[str] | None]] = []
-    company_ids = set()
-    for entry in watchlist_entries:
-        tipos = set(_json.loads(entry.tipos_acto)) if entry.tipos_acto else None
-        watch_map.append((entry.company_id, entry.user_id, tipos))
-        company_ids.add(entry.company_id)
-
-    acts = await db.scalars(
-        select(Act)
-        .options(joinedload(Act.company))
-        .where(
-            Act.fecha_publicacion == fecha,
-            Act.company_id.in_(company_ids),
-        )
-    )
-
     count = 0
-    for act in acts.unique().all():
-        for cid, uid, allowed in watch_map:
-            if cid != act.company_id:
-                continue
-            if allowed is not None and act.tipo_acto not in allowed:
-                continue
+    alerted_keys: set[tuple[int | None, int, int]] = set()  # (user_id, company_id, act_id)
 
-            alert = Alert(
-                user_id=uid,
-                company_id=act.company_id,
-                act_id=act.id,
-                tipo=act.tipo_acto,
-                titulo=f"{act.company.nombre}: {act.tipo_acto}",
-                descripcion=act.texto_original[:500] if act.texto_original else None,
+    # --- Paso 1: Alertas de watchlist (empresas concretas) ---
+    watchlist_entries = (await db.scalars(select(Watchlist))).all()
+
+    if watchlist_entries:
+        watch_map: list[tuple[int, int | None, set[str] | None]] = []
+        company_ids = set()
+        for entry in watchlist_entries:
+            tipos = set(_json.loads(entry.tipos_acto)) if entry.tipos_acto else None
+            watch_map.append((entry.company_id, entry.user_id, tipos))
+            company_ids.add(entry.company_id)
+
+        acts = await db.scalars(
+            select(Act)
+            .options(joinedload(Act.company))
+            .where(
+                Act.fecha_publicacion == fecha,
+                Act.company_id.in_(company_ids),
             )
-            db.add(alert)
-            count += 1
+        )
+
+        for act in acts.unique().all():
+            for cid, uid, allowed in watch_map:
+                if cid != act.company_id:
+                    continue
+                if allowed is not None and act.tipo_acto not in allowed:
+                    continue
+
+                key = (uid, act.company_id, act.id)
+                if key in alerted_keys:
+                    continue
+                alerted_keys.add(key)
+
+                alert = Alert(
+                    user_id=uid,
+                    company_id=act.company_id,
+                    act_id=act.id,
+                    tipo=act.tipo_acto,
+                    titulo=f"{act.company.nombre}: {act.tipo_acto}",
+                    descripcion=act.texto_original[:500] if act.texto_original else None,
+                )
+                db.add(alert)
+                count += 1
+
+    # --- Paso 2: Alertas de ActTypeWatch (tipos de acto globales) ---
+    type_watches = (
+        await db.scalars(select(ActTypeWatch).where(ActTypeWatch.is_active == True))
+    ).all()
+
+    if type_watches:
+        # Group by tipo_acto for efficient querying
+        tipos_needed = {tw.tipo_acto for tw in type_watches}
+        global_acts = await db.scalars(
+            select(Act)
+            .options(joinedload(Act.company))
+            .where(
+                Act.fecha_publicacion == fecha,
+                Act.tipo_acto.in_(tipos_needed),
+            )
+        )
+
+        for act in global_acts.unique().all():
+            for tw in type_watches:
+                if tw.tipo_acto != act.tipo_acto:
+                    continue
+                if tw.filtro_provincia and act.company.provincia != tw.filtro_provincia:
+                    continue
+
+                key = (tw.user_id, act.company_id, act.id)
+                if key in alerted_keys:
+                    continue
+                alerted_keys.add(key)
+
+                provincia_str = f" ({act.company.provincia})" if act.company.provincia else ""
+                alert = Alert(
+                    user_id=tw.user_id,
+                    company_id=act.company_id,
+                    act_id=act.id,
+                    tipo=act.tipo_acto,
+                    titulo=f"[{act.tipo_acto}] {act.company.nombre}{provincia_str}",
+                    descripcion=act.texto_original[:500] if act.texto_original else None,
+                )
+                db.add(alert)
+                count += 1
 
     if count > 0:
         await db.commit()

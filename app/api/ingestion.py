@@ -101,30 +101,22 @@ async def ingestion_log(
 async def enrich_cif(
     request: Request,
     background_tasks: BackgroundTasks,
-    limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    """Trigger CIF enrichment for companies missing CIF."""
+    """Trigger full CIF + web enrichment for ALL companies."""
     err = _require_admin(request)
     if err:
         return err
-    from app.config import settings
-    if not settings.apiempresas_key:
-        return {"error": "APIEMPRESAS_KEY not configured in .env"}
+    from app.scheduler import full_enrichment, is_enrichment_running
+    from app.services.cif_enrichment import count_missing_cif
 
-    from app.services.cif_enrichment import count_missing_cif, enrich_batch
+    if is_enrichment_running():
+        return {"error": "El enriquecimiento ya está en ejecución"}
 
     stats = await count_missing_cif(db)
-
-    async def _run_enrichment():
-        from app.db.engine import async_session
-        async with async_session() as session:
-            result = await enrich_batch(session, settings.apiempresas_key, limit=limit)
-            return result
-
-    background_tasks.add_task(_run_enrichment)
+    background_tasks.add_task(full_enrichment)
     return {
-        "message": f"CIF enrichment started (batch of {limit})",
+        "message": f"Enriquecimiento completo iniciado ({stats['without_cif']} sin CIF)",
         "missing_cif": stats,
     }
 
@@ -136,31 +128,24 @@ async def cif_stats(db: AsyncSession = Depends(get_db)):
     return await count_missing_cif(db)
 
 
-@router.post("/enrich-web")
-async def enrich_web(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db),
-):
-    """Trigger web enrichment: search company websites for CIF, email, phone."""
+@router.get("/enrichment-status")
+async def enrichment_status():
+    """Check if enrichment is running."""
+    from app.scheduler import is_enrichment_running
+    return {"running": is_enrichment_running()}
+
+
+@router.post("/stop-enrichment")
+async def stop_enrichment_endpoint(request: Request):
+    """Stop the running enrichment process."""
     err = _require_admin(request)
     if err:
         return err
-    from app.services.web_enrichment import count_web_coverage, enrich_batch_web
-
-    stats = await count_web_coverage(db)
-
-    async def _run_web_enrichment():
-        from app.db.engine import async_session
-        async with async_session() as session:
-            await enrich_batch_web(session, limit=limit)
-
-    background_tasks.add_task(_run_web_enrichment)
-    return {
-        "message": f"Web enrichment started (batch of {limit})",
-        "coverage": stats,
-    }
+    from app.scheduler import is_enrichment_running, stop_enrichment
+    if not is_enrichment_running():
+        return {"error": "No hay enriquecimiento en ejecución"}
+    stop_enrichment()
+    return {"message": "Señal de parada enviada"}
 
 
 @router.get("/web-stats")
