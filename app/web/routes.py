@@ -322,13 +322,15 @@ async def search_results(
     estado: str | None = None,
     pub_desde: str | None = None,
     pub_hasta: str | None = None,
-    score_min: int | None = None,
+    score_min: str | None = None,
     sort_by: str = "fecha_ultima_publicacion",
     sort_order: str = "desc",
     page: int = 1,
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
+    # Convert empty strings to None for optional numeric fields
+    _score_min = int(score_min) if score_min and score_min.strip() else None
     # Check search limits for free users
     user = getattr(request.state, "user", None)
     if user and page == 1:  # Only count on first page (new search)
@@ -353,10 +355,11 @@ async def search_results(
                 await db.commit()
 
     filters = SearchFilters(
-        q=q, cif=cif, provincia=provincia, forma_juridica=forma_juridica,
-        cnae_code=cnae_code, estado=estado,
+        q=q or None, cif=cif or None, provincia=provincia or None,
+        forma_juridica=forma_juridica or None, cnae_code=cnae_code or None,
+        estado=estado or None,
         pub_desde=pub_desde or None, pub_hasta=pub_hasta or None,
-        score_min=score_min, sort_by=sort_by, sort_order=sort_order,
+        score_min=_score_min, sort_by=sort_by, sort_order=sort_order,
         page=page, per_page=per_page,
     )
     result = await search_companies(filters, db)
