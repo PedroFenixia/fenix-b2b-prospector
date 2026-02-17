@@ -120,6 +120,17 @@ async def daily_boe_judicial_update():
 
 _enrichment_running = False
 _enrichment_stop = False
+_enrichment_stats = {
+    "phase": "",
+    "cif_total": 0, "cif_attempted": 0, "cif_found": 0,
+    "web_total": 0, "web_attempted": 0, "web_found": 0,
+    "errors": 0, "current_company": "",
+}
+
+
+def get_enrichment_stats() -> dict:
+    """Get current enrichment stats for live progress."""
+    return dict(_enrichment_stats)
 
 
 def stop_enrichment():
@@ -144,12 +155,15 @@ async def full_enrichment():
     from app.services.web_enrichment import enrich_company_web
     import httpx
 
-    stats = {"cif_attempted": 0, "cif_found": 0, "web_attempted": 0, "web_found": 0, "errors": 0}
+    stats = _enrichment_stats
+    stats.update({"phase": "cif", "cif_total": 0, "cif_attempted": 0, "cif_found": 0,
+                  "web_total": 0, "web_attempted": 0, "web_found": 0, "errors": 0, "current_company": ""})
 
     try:
         # Phase 1: CIF enrichment
         async with async_session() as db:
             total = await db.scalar(select(f.count(Company.id)).where(Company.cif.is_(None))) or 0
+            stats["cif_total"] = total
             logger.info(f"[Enrichment] Phase 1: {total} companies without CIF")
             offset = 0
             while not _enrichment_stop:
@@ -164,6 +178,7 @@ async def full_enrichment():
                     if _enrichment_stop:
                         break
                     stats["cif_attempted"] += 1
+                    stats["current_company"] = c.nombre[:60]
                     try:
                         cif = await lookup_cif_by_name(c.nombre, use_google=False)
                         if cif:
@@ -182,6 +197,8 @@ async def full_enrichment():
         if not _enrichment_stop:
             async with async_session() as db:
                 total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
+                stats["web_total"] = total
+                stats["phase"] = "web"
                 logger.info(f"[Enrichment] Phase 2: {total} companies without web")
                 offset = 0
                 async with httpx.AsyncClient(timeout=15.0) as client:
@@ -197,6 +214,7 @@ async def full_enrichment():
                             if _enrichment_stop:
                                 break
                             stats["web_attempted"] += 1
+                            stats["current_company"] = c.nombre[:60]
                             try:
                                 r = await enrich_company_web(c, client)
                                 if r["web"]:
@@ -224,6 +242,8 @@ async def full_enrichment():
     except Exception as e:
         logger.error(f"[Enrichment] Fatal error: {e}")
     finally:
+        stats["phase"] = "done" if not _enrichment_stop else "stopped"
+        stats["current_company"] = ""
         _enrichment_running = False
         _enrichment_stop = False
     return stats

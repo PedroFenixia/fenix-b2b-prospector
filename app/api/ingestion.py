@@ -130,9 +130,10 @@ async def cif_stats(db: AsyncSession = Depends(get_db)):
 
 @router.get("/enrichment-status")
 async def enrichment_status():
-    """Check if enrichment is running."""
-    from app.scheduler import is_enrichment_running
-    return {"running": is_enrichment_running()}
+    """Check if enrichment is running with live progress stats."""
+    from app.scheduler import is_enrichment_running, get_enrichment_stats
+    stats = get_enrichment_stats()
+    return {"running": is_enrichment_running(), **stats}
 
 
 @router.post("/stop-enrichment")

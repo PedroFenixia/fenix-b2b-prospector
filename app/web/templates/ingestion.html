@@ -106,6 +106,20 @@
             </button>
             <span id="enrich-status" class="text-sm text-gray-500"></span>
         </div>
+        <!-- Live progress -->
+        <div id="enrich-progress-wrap" class="hidden mt-4 space-y-2">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+                <span id="enrich-phase" class="font-semibold"></span>
+                <span id="enrich-pct" class="font-mono"></span>
+            </div>
+            <div class="rounded-full bg-gray-100 h-2.5 overflow-hidden">
+                <div id="enrich-bar" class="h-full bg-gray-800 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-gray-400">
+                <span id="enrich-detail"></span>
+                <span id="enrich-current" class="truncate max-w-[200px]"></span>
+            </div>
+        </div>
     </div>
 
     <!-- Status -->
@@ -255,11 +269,15 @@ document.getElementById('fecha_desde').value = weekAgo;
 })();
 
 /* === Enrichment === */
+let _enrichPollTimer = null;
+
 function showRunningState() {
-    document.getElementById('btn-enrich').textContent = 'En ejecuci\u00f3n...';
+    document.getElementById('btn-enrich').textContent = 'En ejecucion...';
     document.getElementById('btn-enrich').disabled = true;
     document.getElementById('btn-enrich').classList.add('opacity-50');
     document.getElementById('btn-stop-enrich').classList.remove('hidden');
+    document.getElementById('enrich-progress-wrap').classList.remove('hidden');
+    if (!_enrichPollTimer) _enrichPollTimer = setInterval(pollEnrichment, 3000);
 }
 
 function showIdleState() {
@@ -267,14 +285,68 @@ function showIdleState() {
     document.getElementById('btn-enrich').disabled = false;
     document.getElementById('btn-enrich').classList.remove('opacity-50');
     document.getElementById('btn-stop-enrich').classList.add('hidden');
+    if (_enrichPollTimer) { clearInterval(_enrichPollTimer); _enrichPollTimer = null; }
+    setTimeout(() => document.getElementById('enrich-progress-wrap').classList.add('hidden'), 2000);
 }
 
+function updateEnrichUI(data) {
+    const phase = data.phase || '';
+    const phaseEl = document.getElementById('enrich-phase');
+    const barEl = document.getElementById('enrich-bar');
+    const pctEl = document.getElementById('enrich-pct');
+    const detailEl = document.getElementById('enrich-detail');
+    const currentEl = document.getElementById('enrich-current');
+
+    let attempted = 0, total = 0, found = 0, label = '';
+    if (phase === 'cif') {
+        attempted = data.cif_attempted || 0;
+        total = data.cif_total || 1;
+        found = data.cif_found || 0;
+        label = 'Fase 1: CIF';
+    } else if (phase === 'web') {
+        attempted = data.web_attempted || 0;
+        total = data.web_total || 1;
+        found = data.web_found || 0;
+        label = 'Fase 2: Web';
+    }
+
+    const pct = total > 0 ? Math.round((attempted / total) * 100) : 0;
+    phaseEl.textContent = label;
+    barEl.style.width = pct + '%';
+    pctEl.textContent = pct + '% (' + attempted + '/' + total + ')';
+    detailEl.textContent = 'Encontrados: ' + found + ' | Errores: ' + (data.errors || 0);
+    currentEl.textContent = data.current_company || '';
+}
+
+async function pollEnrichment() {
+    try {
+        const resp = await fetch('/api/ingestion/enrichment-status');
+        const data = await resp.json();
+        if (data.running) {
+            updateEnrichUI(data);
+            // Also refresh CIF/web stats
+            try {
+                const r2 = await fetch('/api/ingestion/cif-stats');
+                const d2 = await r2.json();
+                document.getElementById('cif-stats').innerHTML =
+                    '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + d2.coverage_pct + '%</span> <span class="text-gray-400">cobertura CIF</span></p>' +
+                    '<p class="text-[10px] text-gray-400">' + d2.with_cif + ' con CIF / ' + d2.without_cif + ' sin CIF</p>';
+            } catch(e) {}
+        } else {
+            showIdleState();
+            document.getElementById('enrich-status').textContent = data.phase === 'done' ? 'Completado' : (data.phase === 'stopped' ? 'Detenido' : '');
+        }
+    } catch(e) {}
+}
+
+// Check on page load
 (async function() {
     try {
         const resp = await fetch('/api/ingestion/enrichment-status');
         const data = await resp.json();
         if (data.running) {
             showRunningState();
+            updateEnrichUI(data);
             document.getElementById('enrich-status').textContent = 'Proceso en segundo plano activo';
         }
     } catch(e) {}
