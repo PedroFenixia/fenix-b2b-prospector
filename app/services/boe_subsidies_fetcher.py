@@ -71,19 +71,25 @@ def _parse_subsidies_from_sumario(fecha: date, xml_content: bytes) -> list[dict]
         "subvenci", "ayudas", "bases reguladora",
         "becas", "financiaci", "incentivo",
         "concesión directa", "línea de ayuda",
+        "convocatoria de concesión",
     ]
-    # False-positive exclusions
+    # False-positive exclusions (checked BEFORE subsidy keywords)
     EXCLUDE_KW = [
         "hidrogr", "portuaria", "confederación",
-        "regantes", "junta general", "asamblea",
+        "regantes", "comunidad de regantes",
+        "junta general", "asamblea",
         "convocatoria de junta", "convocatoria de sesión",
+        "convocatoria de asamblea",
         "mutualidad", "funcionarios civiles",
+        "licitación", "levantamiento de acta",
+        "expropiación", "información pública",
+        "notificación", "edicto",
     ]
 
     for seccion in root.iter("seccion"):
         codigo = seccion.get("codigo", "")
-        # Subsidies appear in sections 3, 5A, and 5B
-        if not (codigo.startswith("5") or codigo == "3"):
+        # Subsidies appear in sections 3 and 5B (NOT 5A = tenders)
+        if codigo not in ("3", "5B"):
             continue
 
         for departamento in seccion.findall(".//departamento"):
@@ -114,11 +120,12 @@ def _parse_subsidies_from_sumario(fecha: date, xml_content: bytes) -> list[dict]
                 ep_name = parent.get("nombre", "") if parent is not None and parent.tag == "epigrafe" else ""
 
                 titulo_lower = titulo.lower()
-                is_subsidy = any(kw in titulo_lower for kw in SUBSIDY_KW)
 
-                # Exclude false positives (water concessions, port authority, etc.)
-                if is_subsidy and any(ex in titulo_lower for ex in EXCLUDE_KW):
-                    is_subsidy = False
+                # Exclude false positives first (regantes, licitaciones, etc.)
+                if any(ex in titulo_lower for ex in EXCLUDE_KW):
+                    continue
+
+                is_subsidy = any(kw in titulo_lower for kw in SUBSIDY_KW)
 
                 if item_id and titulo and is_subsidy:
                     items.append({
