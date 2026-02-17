@@ -63,6 +63,28 @@ def _ctx(request: Request, **kwargs) -> dict:
 
 # --- Auth routes ---
 
+# Rate limiting: track failed login attempts per IP
+import time as _time
+_login_attempts: dict[str, list[float]] = {}  # ip -> [timestamps]
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_WINDOW = 300  # 5 minutes
+
+
+def _check_login_rate(ip: str) -> bool:
+    """Return True if login is allowed, False if rate-limited."""
+    now = _time.time()
+    attempts = _login_attempts.get(ip, [])
+    # Clean old attempts
+    attempts = [t for t in attempts if now - t < _LOGIN_WINDOW]
+    _login_attempts[ip] = attempts
+    return len(attempts) < _LOGIN_MAX_ATTEMPTS
+
+
+def _record_login_attempt(ip: str):
+    now = _time.time()
+    _login_attempts.setdefault(ip, []).append(now)
+
+
 @web_router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = ""):
     return templates.TemplateResponse("login.html", {
@@ -74,16 +96,27 @@ async def login_page(request: Request, error: str = ""):
 @web_router.post("/login")
 async def login_submit(request: Request, db: AsyncSession = Depends(get_db)):
     form = await request.form()
-    email = form.get("email", "").strip()
+    email = form.get("email", "").strip().lower()
     password = form.get("password", "")
+
+    # Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_login_rate(client_ip):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Demasiados intentos. Espera 5 minutos.",
+            "email": email,
+        }, status_code=429)
 
     user = await authenticate_user(email, password, db)
     if user:
         # If email not verified and SMTP is configured, redirect to verification
         if not user.email_verified and settings.smtp_host:
             from app.services.email_service import generate_code, send_verification_email
+            from datetime import datetime as _dt
             code = generate_code()
             user.verification_code = code
+            user.verification_code_at = _dt.utcnow()
             await db.commit()
             await send_verification_email(email, code, user.nombre)
             return templates.TemplateResponse("verify_email.html", {
@@ -92,9 +125,10 @@ async def login_submit(request: Request, db: AsyncSession = Depends(get_db)):
 
         token = create_session(user.id, user.email, user.role, user.plan)
         response = RedirectResponse(url="/", status_code=302)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400)
+        response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=True, samesite="lax", max_age=86400)
         return response
 
+    _record_login_attempt(client_ip)
     return templates.TemplateResponse("login.html", {
         "request": request,
         "error": "Email o contrasena incorrectos",
@@ -165,8 +199,10 @@ async def register_submit(request: Request, db: AsyncSession = Depends(get_db)):
 
     # Send verification email
     from app.services.email_service import generate_code, send_verification_email
+    from datetime import datetime as _dt
     code = generate_code()
     user.verification_code = code
+    user.verification_code_at = _dt.utcnow()
     await db.commit()
     await send_verification_email(email, code, nombre)
 
@@ -180,34 +216,44 @@ async def register_submit(request: Request, db: AsyncSession = Depends(get_db)):
 async def verify_email_submit(request: Request, db: AsyncSession = Depends(get_db)):
     form = await request.form()
     email = form.get("email", "").strip().lower()
-    code = form.get("code", "").strip()
+    code = form.get("code", "").strip().upper()
 
     from sqlalchemy import select
     from app.db.models import User
+    from datetime import datetime as _dt, timedelta
     user = await db.scalar(select(User).where(User.email == email))
 
-    if not user:
+    # Generic error to prevent account enumeration
+    _generic_error = "Codigo incorrecto o expirado"
+
+    if not user or user.email_verified:
         return templates.TemplateResponse("verify_email.html", {
-            "request": request, "email": email, "error": "Usuario no encontrado",
+            "request": request, "email": email, "error": _generic_error,
         }, status_code=400)
 
-    if user.email_verified:
-        # Already verified, redirect to login
-        return RedirectResponse(url="/login", status_code=302)
+    # Check code expiry (30 minutes)
+    if user.verification_code_at:
+        elapsed = _dt.utcnow() - user.verification_code_at
+        if elapsed > timedelta(minutes=30):
+            return templates.TemplateResponse("verify_email.html", {
+                "request": request, "email": email,
+                "error": "Codigo expirado. Solicita uno nuevo.",
+            }, status_code=400)
 
-    if user.verification_code != code:
+    if not user.verification_code or user.verification_code != code:
         return templates.TemplateResponse("verify_email.html", {
-            "request": request, "email": email, "error": "Codigo incorrecto",
+            "request": request, "email": email, "error": _generic_error,
         }, status_code=400)
 
     # Mark as verified and login
     user.email_verified = True
     user.verification_code = None
+    user.verification_code_at = None
     await db.commit()
 
     token = create_session(user.id, user.email, user.role, user.plan)
     response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400)
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=True, samesite="lax", max_age=86400)
     return response
 
 
@@ -221,15 +267,26 @@ async def verify_email_resend(request: Request, db: AsyncSession = Depends(get_d
     user = await db.scalar(select(User).where(User.email == email))
 
     if user and not user.email_verified:
+        from datetime import datetime as _dt, timedelta
+        # Rate limit: only allow resend every 60 seconds
+        if user.verification_code_at:
+            elapsed = _dt.utcnow() - user.verification_code_at
+            if elapsed < timedelta(seconds=60):
+                return templates.TemplateResponse("verify_email.html", {
+                    "request": request, "email": email,
+                    "error": "Espera un minuto antes de reenviar.",
+                })
         from app.services.email_service import generate_code, send_verification_email
         code = generate_code()
         user.verification_code = code
+        user.verification_code_at = _dt.utcnow()
         await db.commit()
         await send_verification_email(email, code, user.nombre)
 
+    # Always show success to prevent enumeration
     return templates.TemplateResponse("verify_email.html", {
         "request": request, "email": email,
-        "success": "Codigo reenviado. Revisa tu bandeja de entrada.",
+        "success": "Si la cuenta existe, se ha reenviado el codigo.",
     })
 
 

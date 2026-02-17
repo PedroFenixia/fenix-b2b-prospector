@@ -35,6 +35,7 @@ class User(Base):
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    verification_code_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, default="user")  # admin, user
     plan: Mapped[str] = mapped_column(Text, default="free")  # free, pro, enterprise

@@ -14,9 +14,11 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def generate_code(length: int = 6) -> str:
-    """Generate a random numeric verification code."""
-    return "".join(random.choices(string.digits, k=length))
+def generate_code(length: int = 8) -> str:
+    """Generate a random alphanumeric verification code (uppercase + digits, no ambiguous chars)."""
+    # Exclude O/0/I/1/L to avoid confusion
+    alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return "".join(random.choices(alphabet, k=length))
 
 
 def _send_smtp(to_email: str, subject: str, html_body: str) -> bool:

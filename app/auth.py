@@ -78,12 +78,21 @@ def get_current_user(request: Request) -> dict | None:
 
 
 async def authenticate_user(email: str, password: str, db: AsyncSession):
-    """Authenticate user against database. Returns User or None."""
+    """Authenticate user against database. Returns User or None.
+
+    Uses constant-time comparison to prevent timing-based user enumeration.
+    """
     from app.db.models import User
-    result = await db.execute(select(User).where(User.email == email, User.is_active == True))
+    # Dummy hash for constant-time comparison when user doesn't exist
+    _DUMMY_HASH = "$2b$08$dummyhashfortimingattak1234567890abcdefghijklmno"
+    result = await db.execute(select(User).where(User.email == email.lower().strip(), User.is_active == True))
     user = result.scalar_one_or_none()
-    if user and await verify_password_async(password, user.password_hash):
-        return user
+    if user:
+        if await verify_password_async(password, user.password_hash):
+            return user
+    else:
+        # Always run bcrypt to prevent timing attacks
+        await verify_password_async(password, _DUMMY_HASH)
     return None
 
 
