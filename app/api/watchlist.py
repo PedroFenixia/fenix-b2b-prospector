@@ -99,8 +99,35 @@ async def api_add_act_type_watch(
     if not uid:
         from fastapi.responses import JSONResponse
         return JSONResponse({"error": "Login requerido"}, status_code=401)
-    entry = await add_act_type_watch(uid, body.tipo_acto, db, body.filtro_provincia)
-    return {"ok": True, "id": entry.id}
+
+    # Check alert limits
+    user = getattr(request.state, "user", None)
+    if user:
+        from app.auth import PLAN_LIMITS
+        from sqlalchemy import func, select
+        from app.db.models import ActTypeWatch
+        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
+        if limits["alerts"] != -1:
+            count = await db.scalar(
+                select(func.count(ActTypeWatch.id)).where(
+                    ActTypeWatch.user_id == uid, ActTypeWatch.is_active == True
+                )
+            ) or 0
+            if count >= limits["alerts"]:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    {"error": f"Limite de {limits['alerts']} alertas alcanzado. Mejora tu plan."},
+                    status_code=403,
+                )
+
+    try:
+        entry = await add_act_type_watch(uid, body.tipo_acto, db, body.filtro_provincia)
+        return {"ok": True, "id": entry.id}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error creating act type watch: {e}")
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "Error al crear suscripcion. Intentalo de nuevo."}, status_code=500)
 
 
 @router.delete("/act-types/{watch_id}")

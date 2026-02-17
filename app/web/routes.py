@@ -373,14 +373,40 @@ async def company_detail(
     company_id: int,
     db: AsyncSession = Depends(get_db),
 ):
+    user = get_current_user(request)
+    user_id = user["user_id"] if user else None
+
+    # --- Usage metering: count detail views ---
+    if user_id:
+        from app.db.models import User
+        from datetime import datetime
+        db_user = await db.get(User, user_id)
+        if db_user:
+            current_month = datetime.now().strftime("%Y-%m")
+            if db_user.month_reset != current_month:
+                db_user.searches_this_month = 0
+                db_user.exports_this_month = 0
+                db_user.detail_views_this_month = 0
+                db_user.month_reset = current_month
+            # Check limit
+            limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
+            if limits["detail_views"] != -1 and db_user.detail_views_this_month >= limits["detail_views"]:
+                return templates.TemplateResponse("limit_reached.html", _ctx(
+                    request, limit_type="detail_views", limit=limits["detail_views"],
+                    active_page="search",
+                ))
+            db_user.detail_views_this_month += 1
+            await db.commit()
+
     company = await get_company(company_id, db)
     if not company:
         return HTMLResponse("<h1>Empresa no encontrada</h1>", status_code=404)
-    user = get_current_user(request)
-    user_id = user["user_id"] if user else None
     watched = await is_watched(company_id, db, user_id=user_id)
+    from app.utils.cnae import get_cnae_description
+    cnae_desc = get_cnae_description(company.cnae_code) if company.cnae_code else None
     return templates.TemplateResponse("company_detail.html", _ctx(
         request, company=company, watched=watched, active_page="search",
+        cnae_desc=cnae_desc,
     ))
 
 

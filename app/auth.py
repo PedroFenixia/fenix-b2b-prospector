@@ -21,9 +21,9 @@ _signer = URLSafeTimedSerializer(settings.secret_key)
 
 # Plan limits
 PLAN_LIMITS = {
-    "free": {"searches": 50, "exports": 5, "watchlist": 10, "scoring": False, "enrichment": False},
-    "pro": {"searches": -1, "exports": 50, "watchlist": 100, "scoring": True, "enrichment": True},
-    "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "scoring": True, "enrichment": True},
+    "free": {"searches": 50, "exports": 5, "watchlist": 10, "detail_views": 10, "alerts": 5, "scoring": False, "enrichment": False},
+    "pro": {"searches": -1, "exports": 50, "watchlist": 100, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True},
+    "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True},
 }
 
 # Lower bcrypt rounds for faster login (default 12 → 8, ~15x faster, still secure)

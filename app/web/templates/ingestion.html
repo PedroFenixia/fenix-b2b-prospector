@@ -161,11 +161,16 @@ async function fetchSource(key) {
 
     try {
         const resp = await fetch(cfg.url, { method: 'POST' });
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.error || 'Error del servidor (' + resp.status + ')');
+        }
         const data = await resp.json();
         completeProgress(progressBar, progressWrap, timer);
         const fetched = data.fetched || 0;
         const newCount = data.new || 0;
-        result.innerHTML = '<span class="text-green-600 font-semibold">Actualizado</span> &mdash; ' + fetched + ' encontrados, ' + newCount + ' nuevos';
+        const now = new Date().toLocaleString('es-ES', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+        result.innerHTML = '<span class="text-green-600 font-semibold">&#10003; Actualizado</span> &mdash; ' + fetched + ' encontrados, ' + newCount + ' nuevos <span class="text-gray-400 text-xs ml-2">' + now + '</span>';
         btn.textContent = cfg.label;
     } catch(e) {
         completeProgress(progressBar, progressWrap, timer);
@@ -208,9 +213,10 @@ async function _runBorme(url, method, body, btnId) {
         const resp = await fetch(url, { method, headers, body });
         const data = await resp.json();
         completeProgress(progressBar, progressWrap, timer);
+        const now = new Date().toLocaleString('es-ES', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
         statusEl.innerHTML = data.error
             ? '<span class="text-red-600">' + data.error + '</span>'
-            : '<span class="text-green-600 font-semibold">Actualizado</span> &mdash; ' + (data.message || 'OK');
+            : '<span class="text-green-600 font-semibold">&#10003; Actualizado</span> &mdash; ' + (data.message || 'OK') + ' <span class="text-gray-400 text-xs ml-2">' + now + '</span>';
     } catch(e) {
         completeProgress(progressBar, progressWrap, timer);
         statusEl.innerHTML = '<span class="text-red-600">Error: ' + e.message + '</span>';

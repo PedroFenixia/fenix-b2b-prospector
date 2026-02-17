@@ -43,6 +43,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     searches_this_month: Mapped[int] = mapped_column(Integer, default=0)
     exports_this_month: Mapped[int] = mapped_column(Integer, default=0)
+    detail_views_this_month: Mapped[int] = mapped_column(Integer, default=0)
     month_reset: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # YYYY-MM
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
@@ -78,6 +79,8 @@ class Company(Base):
     telefono: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     web: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     estado: Mapped[str] = mapped_column(Text, default="activa")
+    num_empleados: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    facturacion: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     score_solvencia: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     score_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
