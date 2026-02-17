@@ -29,6 +29,7 @@
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Empresa</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">CIF</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Provincia</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">CNAE</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Forma</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Capital</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Estado</th>
@@ -48,6 +49,7 @@
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ company.cif or '-' }}</td>
                 <td class="py-3 px-4 text-sm text-gray-600">{{ company.provincia or '-' }}</td>
+                <td class="py-3 px-4 text-xs text-gray-500 font-mono">{{ company.cnae_code or '-' }}</td>
                 <td class="py-3 px-4">
                     {% if company.forma_juridica %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ company.forma_juridica }}</span>

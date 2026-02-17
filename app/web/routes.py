@@ -381,7 +381,7 @@ async def search_results(
     pub_hasta: str | None = None,
     score_min: str | None = None,
     sort_by: str = "fecha_ultima_publicacion",
-    sort_order: str = "desc",
+    sort_order: str = "desc",  # Always desc
     page: int = 1,
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
@@ -416,7 +416,7 @@ async def search_results(
         forma_juridica=forma_juridica or None, cnae_code=cnae_code or None,
         estado=estado or None,
         pub_desde=pub_desde or None, pub_hasta=pub_hasta or None,
-        score_min=_score_min, sort_by=sort_by, sort_order=sort_order,
+        score_min=_score_min, sort_by=sort_by, sort_order="desc",
         page=page, per_page=per_page,
     )
     result = await search_companies(filters, db)
