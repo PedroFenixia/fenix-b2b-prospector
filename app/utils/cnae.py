@@ -51,6 +51,16 @@ def get_all_cnae() -> list[dict]:
     return _load()
 
 
+def get_cnae_description(code: str) -> str | None:
+    """Get CNAE description for a given code."""
+    if not code:
+        return None
+    for item in _load():
+        if item.get("code") == code:
+            return item.get("description") or item.get("name")
+    return None
+
+
 def guess_cnae(objeto_social: str) -> str | None:
     """Best-effort CNAE code from objeto_social text. Returns division code or None."""
     if not objeto_social:

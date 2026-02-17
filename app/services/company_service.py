@@ -167,34 +167,13 @@ async def _search_via_db(filters: SearchFilters, db: AsyncSession) -> dict:
         # Direct CIF lookup (instant via index)
         if _CIF_RE.match(q_upper):
             conditions.append(Company.cif == q_upper)
-        elif len(q_upper) <= 3:
-            conditions.append(Company.nombre_normalizado.like(f"{q_upper}%"))
         else:
-            try:
-                if _is_pg():
-                    from app.services.fts_service import build_pg_tsquery
-                    tsquery_expr = build_pg_tsquery(q_stripped)
-                    conditions.append(
-                        text(
-                            "search_vector @@ to_tsquery(:fts_config, :fts_q)"
-                        ).bindparams(fts_config=settings.pg_fts_config, fts_q=tsquery_expr)
-                    )
-                else:
-                    from app.services.fts_service import build_fts_match
-                    fts_expr = build_fts_match(q_stripped)
-                    conditions.append(
-                        text(
-                            "companies.id IN (SELECT rowid FROM companies_fts "
-                            "WHERE companies_fts MATCH :fts_q)"
-                        ).bindparams(fts_q=fts_expr)
-                    )
-            except Exception:
-                logger.debug("FTS not available, falling back to LIKE", exc_info=True)
-                conditions.append(
-                    (Company.nombre_normalizado.like(f"%{q_upper}%"))
-                    | (Company.objeto_social.ilike(f"%{q_stripped}%"))
-                    | (Company.cif.ilike(f"%{q_stripped}%"))
-                )
+            # LIKE search: matches characters in order, case-insensitive
+            # nombre_normalizado is already uppercase, so compare with q_upper
+            conditions.append(
+                (Company.nombre_normalizado.like(f"%{q_upper}%"))
+                | (Company.cif.ilike(f"%{q_stripped}%"))
+            )
 
     if filters.cif:
         cif_clean = filters.cif.strip().upper()

@@ -53,6 +53,7 @@
 </head>
 <body class="min-h-screen flex flex-col font-sans text-gray-600">
     <!-- Navigation -->
+    {% block nav %}
     <nav class="sticky top-0 z-50 bg-[rgba(255,254,248,.92)] backdrop-blur-xl border-b border-transparent" id="main-nav">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
@@ -107,6 +108,7 @@
             </div>
         </div>
     </nav>
+    {% endblock %}
 
     <!-- Main Content -->
     <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">

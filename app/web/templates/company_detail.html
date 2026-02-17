@@ -94,6 +94,32 @@
         </div>
     </div>
 
+    <!-- Datos financieros -->
+    <div class="card p-6">
+        <h2 class="text-base font-bold text-gray-900 mb-4">Datos financieros</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">CNAE</p>
+                <p class="text-sm font-bold text-gray-900 font-mono">{{ company.cnae_code or '-' }}</p>
+                {% if cnae_desc %}
+                <p class="text-[11px] text-gray-500 mt-0.5">{{ cnae_desc }}</p>
+                {% endif %}
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Capital social</p>
+                <p class="text-sm font-bold text-gray-900">{{ company.capital_social|eu }}&euro;</p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Empleados</p>
+                <p class="text-sm font-bold text-gray-900">{{ company.num_empleados or 'N/D' }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Facturacion</p>
+                <p class="text-sm font-bold text-gray-900">{% if company.facturacion %}{{ company.facturacion|eu }}&euro;{% else %}N/D{% endif %}</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Data Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Basic Info -->

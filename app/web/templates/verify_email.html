@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Verificar email - FENIX Prospector{% endblock %}
 
+{% block nav %}
+<nav class="bg-[rgba(255,254,248,.92)] border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-center h-16">
+            <a href="/login" class="flex items-center gap-2.5">
+                <img src="/static/logo.png" alt="FENIX" class="h-8">
+                <span class="font-extrabold text-gray-900 tracking-tight">
+                    <span class="text-brand-500">FENIX</span> Prospector
+                </span>
+            </a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-md mx-auto mt-12">
     <div class="card p-8 space-y-6">

@@ -81,12 +81,38 @@
         </div>
         {% endif %}
 
+        <!-- Checkout error -->
+        <div id="checkout-error" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium"></div>
+
         {% if db_user.plan == 'free' %}
-        <div class="pt-2">
-            <a href="/pricing"
-               class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(37,99,235,.2)]">
-                Mejorar plan
-            </a>
+        <div class="pt-2 space-y-3">
+            <p class="text-sm text-gray-500">Mejora tu plan para desbloquear mas funcionalidades:</p>
+            <div class="flex flex-wrap gap-3">
+                <button onclick="checkout('pro')" id="btn-pro"
+                        class="px-5 py-2.5 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(37,99,235,.2)] disabled:opacity-50 disabled:cursor-wait">
+                    Contratar Pro &mdash; 29&euro;/mes
+                </button>
+                <button onclick="checkout('enterprise')" id="btn-enterprise"
+                        class="px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-wait">
+                    Contratar Enterprise &mdash; 79&euro;/mes
+                </button>
+            </div>
+            <a href="/pricing" class="inline-block text-xs text-brand-500 hover:text-brand-600 font-medium transition">Ver detalle de planes</a>
+        </div>
+        {% elif db_user.plan == 'pro' %}
+        <div class="pt-2 space-y-3">
+            <div class="flex flex-wrap gap-3">
+                <button onclick="checkout('enterprise')" id="btn-enterprise"
+                        class="px-5 py-2.5 bg-purple-600 text-white rounded-xl font-semibold text-sm hover:bg-purple-700 transition shadow-[0_2px_12px_rgba(147,51,234,.2)] disabled:opacity-50 disabled:cursor-wait">
+                    Upgrade a Enterprise &mdash; 79&euro;/mes
+                </button>
+                {% if db_user.stripe_subscription_id %}
+                <a href="/api/billing/portal"
+                   class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition inline-flex items-center">
+                    Gestionar suscripcion
+                </a>
+                {% endif %}
+            </div>
         </div>
         {% elif db_user.stripe_subscription_id %}
         <div class="pt-2">
@@ -98,4 +124,33 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+const labels = {pro: 'Contratar Pro \u2014 29\u20ac/mes', enterprise: 'Contratar Enterprise \u2014 79\u20ac/mes'};
+async function checkout(plan) {
+    const btn = document.getElementById('btn-' + plan);
+    const errDiv = document.getElementById('checkout-error');
+    errDiv.classList.add('hidden');
+    if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo a Stripe...'; }
+    try {
+        const res = await fetch('/api/billing/checkout', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({plan}),
+        });
+        const data = await res.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            errDiv.textContent = data.error || 'Error al crear la sesi\u00f3n de pago';
+            errDiv.classList.remove('hidden');
+            if (btn) { btn.disabled = false; btn.textContent = labels[plan]; }
+        }
+    } catch (e) {
+        errDiv.textContent = 'Error de conexi\u00f3n. Int\u00e9ntalo de nuevo.';
+        errDiv.classList.remove('hidden');
+        if (btn) { btn.disabled = false; btn.textContent = labels[plan]; }
+    }
+}
+</script>
 {% endblock %}
