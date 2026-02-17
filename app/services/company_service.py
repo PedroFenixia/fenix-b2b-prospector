@@ -228,7 +228,7 @@ async def _search_via_db(filters: SearchFilters, db: AsyncSession) -> dict:
 
     has_join = bool(filters.tipo_acto)
 
-    count_query = select(func.count(Company.id))
+    count_query = select(func.count(func.distinct(Company.id)))
     if has_join:
         count_query = count_query.join(Act).where(Act.tipo_acto == filters.tipo_acto)
     for cond in conditions:
@@ -237,7 +237,7 @@ async def _search_via_db(filters: SearchFilters, db: AsyncSession) -> dict:
 
     query = select(Company)
     if has_join:
-        query = query.join(Act).where(Act.tipo_acto == filters.tipo_acto)
+        query = query.join(Act).where(Act.tipo_acto == filters.tipo_acto).distinct()
     for cond in conditions:
         query = query.where(cond)
 
