@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Terminos y Condiciones - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Legal</p>
+    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-8">Terminos y Condiciones de Uso</h1>
+
+    <div class="prose prose-sm text-gray-600 space-y-6">
+        <p class="text-sm text-gray-400">Ultima actualizacion: 16 de febrero de 2026</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">1. Identificacion del titular</h2>
+        <p>El presente sitio web <strong>b2b.fenixia.tech</strong> (en adelante, "la Plataforma") es propiedad de <strong>FENIX IA SOLUTIONS SL</strong> (en adelante, "FENIX IA"), con domicilio social en C/ La Paz 83, Torrellano-Elche, 03320 Alicante, Espana.</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Email de contacto: <a href="mailto:info@fenixia.tech" class="text-brand-500">info@fenixia.tech</a></li>
+            <li>Telefono: +34 966 10 10 29</li>
+            <li>Web corporativa: <a href="https://www.fenixia.tech" class="text-brand-500" target="_blank">fenixia.tech</a></li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">2. Objeto</h2>
+        <p>Estos Terminos y Condiciones regulan el acceso y uso de la Plataforma FENIX B2B Prospector, una herramienta SaaS de prospeccion e inteligencia comercial B2B que permite buscar, analizar y exportar informacion mercantil publica procedente del Boletin Oficial del Estado (BOE) y el Boletin Oficial del Registro Mercantil (BORME).</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">3. Registro y cuenta de usuario</h2>
+        <p>Para acceder a la Plataforma, el usuario debe registrarse proporcionando informacion veraz y completa: nombre, email, nombre de empresa, CIF y telefono de contacto. El usuario es responsable de mantener la confidencialidad de sus credenciales de acceso.</p>
+        <p>FENIX IA se reserva el derecho de suspender o cancelar cuentas que incumplan estos terminos o muestren actividad fraudulenta.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">4. Planes y suscripcion</h2>
+        <p>La Plataforma ofrece diferentes planes de suscripcion (Free, Pro, Enterprise) con distintos niveles de funcionalidad. Los precios, limites y caracteristicas de cada plan se detallan en la pagina de <a href="/pricing" class="text-brand-500">precios</a>.</p>
+        <p>Las suscripciones de pago se gestionan a traves de <strong>Stripe</strong>, procesador de pagos certificado PCI DSS. FENIX IA no almacena datos de tarjetas de credito.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">5. Fuentes de datos</h2>
+        <p>La informacion mercantil mostrada en la Plataforma procede de fuentes publicas oficiales (BOE, BORME, Plataforma de Contratacion del Sector Publico). FENIX IA no garantiza la exactitud absoluta de los datos, ya que dependen de las fuentes originales.</p>
+        <p>Los datos se actualizan periodicamente de forma automatizada. La Plataforma facilita la consulta y el analisis de dicha informacion publica, no crea ni modifica registros mercantiles.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">6. Uso aceptable</h2>
+        <p>El usuario se compromete a utilizar la Plataforma unicamente para fines legitimos de prospeccion comercial B2B. Queda prohibido:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Realizar scraping masivo o acceso automatizado no autorizado</li>
+            <li>Revender o redistribuir los datos obtenidos sin autorizacion</li>
+            <li>Utilizar la informacion para fines ilegales, difamatorios o de acoso</li>
+            <li>Intentar acceder a cuentas de otros usuarios</li>
+            <li>Sobrecargar intencionadamente los servidores</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">7. Propiedad intelectual</h2>
+        <p>El diseno, codigo fuente, logotipos, marcas y contenido original de la Plataforma son propiedad de FENIX IA SOLUTIONS SL y estan protegidos por la legislacion de propiedad intelectual e industrial.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">8. Limitacion de responsabilidad</h2>
+        <p>FENIX IA no sera responsable de danos indirectos, incidentales o consecuentes derivados del uso de la Plataforma. El servicio se proporciona "tal cual" y "segun disponibilidad". Nos esforzamos por mantener una alta disponibilidad, pero no garantizamos un servicio ininterrumpido.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">9. Cancelacion</h2>
+        <p>El usuario puede cancelar su cuenta en cualquier momento desde su pagina de cuenta. Las suscripciones de pago pueden cancelarse a traves del portal de Stripe, manteniendo el acceso hasta el final del periodo facturado.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">10. Modificaciones</h2>
+        <p>FENIX IA se reserva el derecho de modificar estos terminos en cualquier momento. Los cambios se notificaran a los usuarios registrados por email con al menos 15 dias de antelacion.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">11. Legislacion aplicable</h2>
+        <p>Estos terminos se rigen por la legislacion espanola. Para cualquier controversia, las partes se someten a los juzgados y tribunales de Elche (Alicante), con renuncia expresa a cualquier otro fuero.</p>
+
+        <div class="mt-12 pt-6 border-t border-gray-100">
+            <p class="text-xs text-gray-400">FENIX IA SOLUTIONS SL &mdash; C/ La Paz 83, Torrellano-Elche, 03320 Alicante &mdash; info@fenixia.tech</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

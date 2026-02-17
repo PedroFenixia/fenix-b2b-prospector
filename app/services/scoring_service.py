@@ -145,6 +145,120 @@ def compute_score(
     return max(0, min(100, round(score)))
 
 
+def compute_score_detailed(
+    company: Company,
+    acts: list[Act],
+    officers: list[Officer],
+    has_judicial: bool = False,
+) -> dict:
+    """Compute score with per-factor breakdown for API responses."""
+    detail = {}
+    score = 50.0
+    today = date.today()
+
+    # Estado
+    estado = (company.estado or "activa").lower()
+    pts = {
+        "activa": 10, "disuelta": -30, "en_liquidacion": -25, "extinguida": -40,
+    }.get(estado, 0)
+    score += pts
+    detail["estado"] = f"{pts:+d}"
+
+    # Antiguedad
+    ref_date = company.fecha_constitucion or company.fecha_primera_publicacion
+    pts = 0
+    if ref_date:
+        years = (today - ref_date).days / 365.25
+        if years > 10:
+            pts = 15
+        elif years > 5:
+            pts = 10
+        elif years > 2:
+            pts = 5
+        elif years > 1:
+            pts = 2
+        elif years < 0.5:
+            pts = -5
+    score += pts
+    detail["antiguedad"] = f"{pts:+d}"
+
+    # Capital social
+    capital = company.capital_social or 0
+    pts = 0
+    if capital >= 500_000:
+        pts = 12
+    elif capital >= 100_000:
+        pts = 10
+    elif capital >= 30_000:
+        pts = 7
+    elif capital >= 10_000:
+        pts = 5
+    elif capital > 3_000:
+        pts = 2
+    elif capital == 3_000:
+        pts = -2
+    score += pts
+    detail["capital"] = f"{pts:+d}"
+
+    # Contacto
+    pts = 0
+    if company.cif:
+        pts += 3
+    if company.web:
+        pts += 2
+    if company.email or company.telefono:
+        pts += 2
+    score += pts
+    detail["contacto"] = f"{pts:+d}"
+
+    # Actos de riesgo
+    risk_acts = sum(1 for act in acts if any(r in (act.tipo_acto or "") for r in RISK_ACT_TYPES))
+    capital_changes = sum(1 for act in acts if any(r in (act.tipo_acto or "") for r in CAPITAL_REDUCTION_TYPES))
+    pts = 0
+    if risk_acts > 0:
+        pts -= min(risk_acts * 8, 20)
+    if capital_changes > 2:
+        pts -= 5
+    score += pts
+    detail["actos_riesgo"] = f"{pts:+d}"
+
+    # Estabilidad directiva
+    two_years_ago = date(today.year - 2, today.month, today.day)
+    recent_ceses = sum(
+        1 for o in officers
+        if o.tipo_evento in ("cese", "dimision", "dimisión", "revocacion", "revocación")
+        and o.fecha_publicacion >= two_years_ago
+    )
+    pts = 0
+    if recent_ceses == 0:
+        pts = 5
+    elif recent_ceses > 5:
+        pts = -10
+    elif recent_ceses > 3:
+        pts = -5
+    score += pts
+    detail["estabilidad"] = f"{pts:+d}"
+
+    # Judicial
+    pts = -20 if has_judicial else 0
+    score += pts
+    detail["judicial"] = f"{pts:+d}"
+
+    final_score = max(0, min(100, round(score)))
+
+    # Risk level
+    if final_score >= 76:
+        risk_level = "muy_fiable"
+    elif final_score >= 51:
+        risk_level = "fiable"
+    elif final_score >= 26:
+        risk_level = "riesgo_moderado"
+    else:
+        risk_level = "riesgo_alto"
+
+    return {"score": final_score, "risk_level": risk_level, "detail": detail}
+
+
 async def score_company(company_id: int, db: AsyncSession) -> Optional[int]:
     """Compute and store solvency score for a single company."""
     company = await db.get(Company, company_id)

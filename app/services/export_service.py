@@ -32,7 +32,25 @@ EXPORT_FIELDS = [
 ]
 
 
-async def export_csv(filters: SearchFilters, db: AsyncSession) -> Path:
+async def _increment_export_count(user_id: int | None, db: AsyncSession):
+    """Increment user's monthly export counter."""
+    if not user_id:
+        return
+    from app.db.models import User
+    from datetime import datetime as _dt
+    user = await db.get(User, user_id)
+    if not user:
+        return
+    current_month = _dt.now().strftime("%Y-%m")
+    if user.month_reset != current_month:
+        user.searches_this_month = 0
+        user.exports_this_month = 0
+        user.month_reset = current_month
+    user.exports_this_month += 1
+    await db.commit()
+
+
+async def export_csv(filters: SearchFilters, db: AsyncSession, user_id: int | None = None) -> Path:
     """Export search results as CSV."""
     # Get all results (override pagination)
     filters.per_page = 100
@@ -64,6 +82,7 @@ async def export_csv(filters: SearchFilters, db: AsyncSession) -> Path:
 
     # Log export
     log = ExportLog(
+        user_id=user_id,
         filename=filename,
         format="csv",
         filters_applied=filters.model_dump_json(),
@@ -72,11 +91,13 @@ async def export_csv(filters: SearchFilters, db: AsyncSession) -> Path:
     db.add(log)
     await db.commit()
 
+    await _increment_export_count(user_id, db)
+
     logger.info(f"Exported {len(all_items)} companies to {filename}")
     return filepath
 
 
-async def export_excel(filters: SearchFilters, db: AsyncSession) -> Path:
+async def export_excel(filters: SearchFilters, db: AsyncSession, user_id: int | None = None) -> Path:
     """Export search results as Excel."""
     filters.per_page = 100
     filters.page = 1
@@ -125,6 +146,7 @@ async def export_excel(filters: SearchFilters, db: AsyncSession) -> Path:
     wb.save(filepath)
 
     log = ExportLog(
+        user_id=user_id,
         filename=filename,
         format="xlsx",
         filters_applied=filters.model_dump_json(),
@@ -132,6 +154,8 @@ async def export_excel(filters: SearchFilters, db: AsyncSession) -> Path:
     )
     db.add(log)
     await db.commit()
+
+    await _increment_export_count(user_id, db)
 
     logger.info(f"Exported {len(all_items)} companies to {filename}")
     return filepath

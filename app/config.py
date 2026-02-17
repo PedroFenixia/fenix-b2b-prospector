@@ -31,12 +31,31 @@ class Settings(BaseSettings):
     demo_password: str = "fenixiaprospector"
     secret_key: str = "fenix-b2b-secret-change-me-in-production"
 
-    # Stripe
+    # Stripe (procesador de pagos)
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_price_pro: str = ""  # price_xxx for Pro plan
     stripe_price_enterprise: str = ""  # price_xxx for Enterprise plan
     app_url: str = "https://b2b.fenixia.tech"
+
+    # RevenueCat (gestion de suscripciones)
+    revenuecat_api_key: str = ""  # Secret API key (sk_xxx)
+    revenuecat_webhook_auth: str = ""  # Authorization header for incoming webhooks
+    revenuecat_entitlement_pro: str = "pro"  # Entitlement ID for Pro
+    revenuecat_entitlement_enterprise: str = "enterprise"  # Entitlement ID for Enterprise
+
+    # Typesense (motor de busqueda)
+    typesense_url: str = "http://localhost:8108"
+    typesense_api_key: str = "fenix-ts-local-key"
+    typesense_collection: str = "companies"
+
+    # Email (SMTP for verification)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@fenixia.tech"
+    smtp_from_name: str = "FENIX B2B Prospector"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

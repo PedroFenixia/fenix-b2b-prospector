@@ -34,6 +34,23 @@ async def api_add_to_watchlist(
     db: AsyncSession = Depends(get_db),
 ):
     uid = _user_id(request)
+    # Check watchlist limits
+    user = getattr(request.state, "user", None)
+    if user:
+        from app.auth import PLAN_LIMITS
+        from sqlalchemy import func, select
+        from app.db.models import Watchlist
+        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
+        if limits["watchlist"] != -1:
+            count = await db.scalar(
+                select(func.count(Watchlist.id)).where(Watchlist.user_id == uid)
+            ) or 0
+            if count >= limits["watchlist"]:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    {"error": f"Limite de {limits['watchlist']} empresas en vigilancia alcanzado. Mejora tu plan."},
+                    status_code=403,
+                )
     entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto, user_id=uid)
     return {"ok": True, "id": entry.id}
 

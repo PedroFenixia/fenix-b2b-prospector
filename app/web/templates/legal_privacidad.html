@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Politica de Privacidad - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Legal</p>
+    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight mb-8">Politica de Privacidad</h1>
+
+    <div class="prose prose-sm text-gray-600 space-y-6">
+        <p class="text-sm text-gray-400">Ultima actualizacion: 16 de febrero de 2026</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">1. Responsable del tratamiento</h2>
+        <p><strong>FENIX IA SOLUTIONS SL</strong><br>
+        C/ La Paz 83, Torrellano-Elche, 03320 Alicante, Espana<br>
+        Email: <a href="mailto:info@fenixia.tech" class="text-brand-500">info@fenixia.tech</a><br>
+        Telefono: +34 966 10 10 29</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">2. Datos que recopilamos</h2>
+        <p>Recopilamos los siguientes datos personales:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Datos de registro:</strong> nombre, email, nombre de empresa, CIF de empresa, telefono de contacto y contrasena (almacenada de forma cifrada con bcrypt)</li>
+            <li><strong>Datos de uso:</strong> busquedas realizadas, exportaciones, empresas en vigilancia, alertas configuradas</li>
+            <li><strong>Datos de facturacion:</strong> gestionados integramente por Stripe Inc. No almacenamos datos de tarjetas de credito</li>
+            <li><strong>Datos tecnicos:</strong> direccion IP, navegador, sistema operativo, paginas visitadas (mediante cookies analiticas, previo consentimiento)</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">3. Finalidad del tratamiento</h2>
+        <p>Tratamos sus datos personales para las siguientes finalidades:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Prestacion del servicio:</strong> gestionar su cuenta, proporcionar acceso a la plataforma y sus funcionalidades</li>
+            <li><strong>Comunicaciones de servicio:</strong> enviar alertas de vigilancia, notificaciones del sistema y actualizaciones de la cuenta</li>
+            <li><strong>Facturacion:</strong> gestionar suscripciones y pagos a traves de Stripe</li>
+            <li><strong>Mejora del servicio:</strong> analizar el uso agregado para mejorar la plataforma</li>
+            <li><strong>Cumplimiento legal:</strong> atender obligaciones fiscales y legales</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">4. Base juridica</h2>
+        <p>El tratamiento de sus datos se basa en:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Ejecucion de contrato:</strong> el tratamiento es necesario para la prestacion del servicio contratado (Art. 6.1.b RGPD)</li>
+            <li><strong>Consentimiento:</strong> para cookies analiticas y comunicaciones comerciales (Art. 6.1.a RGPD)</li>
+            <li><strong>Interes legitimo:</strong> para la mejora del servicio y prevencion de fraude (Art. 6.1.f RGPD)</li>
+            <li><strong>Obligacion legal:</strong> para el cumplimiento de obligaciones fiscales (Art. 6.1.c RGPD)</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">5. Destinatarios</h2>
+        <p>Sus datos podran ser comunicados a:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Stripe Inc.</strong> (EE.UU.): procesamiento de pagos. Stripe cumple con el EU-US Data Privacy Framework</li>
+            <li><strong>Proveedores de hosting:</strong> servidores ubicados en la Union Europea</li>
+            <li><strong>Autoridades competentes:</strong> cuando exista obligacion legal</li>
+        </ul>
+        <p>No vendemos ni compartimos sus datos personales con terceros para fines comerciales.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">6. Conservacion de datos</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Datos de cuenta:</strong> mientras la cuenta este activa y hasta 2 anos despues de la cancelacion</li>
+            <li><strong>Datos de facturacion:</strong> 5 anos por obligacion fiscal</li>
+            <li><strong>Datos de uso:</strong> 12 meses desde su generacion</li>
+            <li><strong>Logs tecnicos:</strong> 90 dias</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">7. Derechos del interesado</h2>
+        <p>De acuerdo con el RGPD, usted tiene derecho a:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Acceso:</strong> obtener una copia de sus datos personales</li>
+            <li><strong>Rectificacion:</strong> corregir datos inexactos o incompletos</li>
+            <li><strong>Supresion:</strong> solicitar la eliminacion de sus datos ("derecho al olvido")</li>
+            <li><strong>Limitacion:</strong> restringir el tratamiento en determinados supuestos</li>
+            <li><strong>Portabilidad:</strong> recibir sus datos en formato estructurado y de uso comun</li>
+            <li><strong>Oposicion:</strong> oponerse al tratamiento basado en interes legitimo</li>
+        </ul>
+        <p>Para ejercer estos derechos, contacte con nosotros en <a href="mailto:info@fenixia.tech" class="text-brand-500">info@fenixia.tech</a>. Responderemos en un plazo maximo de 30 dias.</p>
+        <p>Tambien puede presentar una reclamacion ante la <strong>Agencia Espanola de Proteccion de Datos (AEPD)</strong> en <a href="https://www.aepd.es" class="text-brand-500" target="_blank">www.aepd.es</a>.</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">8. Seguridad</h2>
+        <p>Implementamos medidas tecnicas y organizativas adecuadas para proteger sus datos:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Contrasenas cifradas con bcrypt</li>
+            <li>Comunicaciones cifradas con HTTPS/TLS</li>
+            <li>Sesiones firmadas con tokens temporales</li>
+            <li>Acceso restringido a bases de datos</li>
+            <li>Copias de seguridad periodicas</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">9. Datos mercantiles publicos</h2>
+        <p>La Plataforma procesa datos mercantiles publicos procedentes del BOE y BORME. Estos datos son de acceso publico y su tratamiento se ampara en el interes legitimo y en la normativa de reutilizacion de la informacion del sector publico (Ley 37/2007).</p>
+
+        <h2 class="text-lg font-bold text-gray-900 mt-8">10. Modificaciones</h2>
+        <p>Nos reservamos el derecho de actualizar esta politica. Cualquier cambio sustancial sera notificado por email a los usuarios registrados.</p>
+
+        <div class="mt-12 pt-6 border-t border-gray-100">
+            <p class="text-xs text-gray-400">FENIX IA SOLUTIONS SL &mdash; C/ La Paz 83, Torrellano-Elche, 03320 Alicante &mdash; info@fenixia.tech</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

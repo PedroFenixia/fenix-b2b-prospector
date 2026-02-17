@@ -63,14 +63,19 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 from app.api.router import api_router  # noqa: E402
 app.include_router(api_router, prefix="/api")
 
+# Admin API routes
+from app.api.admin import admin_router  # noqa: E402
+app.include_router(admin_router)
+
 # Web routes (server-rendered HTML)
 from app.web.routes import web_router  # noqa: E402
 app.include_router(web_router)
 
 
 # Public paths that don't require auth
-PUBLIC_PATHS = ["/login", "/register", "/health", "/static/", "/favicon.ico", "/pricing",
-                "/api/billing/webhook"]
+PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/health", "/static/", "/favicon.ico",
+                "/pricing", "/legal/", "/api/billing/webhook", "/api/billing/rc-webhook",
+                "/api/solvency/"]
 
 
 @app.middleware("http")

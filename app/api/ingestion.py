@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,12 +20,24 @@ from app.services.ingestion_orchestrator import (
 router = APIRouter()
 
 
+def _require_admin(request: Request):
+    """Return error response if user is not admin, None if OK."""
+    user = getattr(request.state, "user", None)
+    if not user or user.get("role") != "admin":
+        return JSONResponse({"error": "Solo administradores"}, status_code=403)
+    return None
+
+
 @router.post("/trigger")
 async def trigger_ingestion(
+    request: Request,
     body: IngestionTrigger,
     background_tasks: BackgroundTasks,
 ):
     """Trigger BORME ingestion for a date range."""
+    err = _require_admin(request)
+    if err:
+        return err
     status = get_ingestion_status()
     if status.get("is_running"):
         return {"error": "Ingestion already running", "status": status}
@@ -39,8 +52,11 @@ async def trigger_ingestion(
 
 
 @router.post("/trigger-today")
-async def trigger_today(background_tasks: BackgroundTasks):
+async def trigger_today(request: Request, background_tasks: BackgroundTasks):
     """Trigger BORME ingestion for today."""
+    err = _require_admin(request)
+    if err:
+        return err
     today = date.today()
     status = get_ingestion_status()
     if status.get("is_running"):
@@ -83,11 +99,15 @@ async def ingestion_log(
 
 @router.post("/enrich-cif")
 async def enrich_cif(
+    request: Request,
     background_tasks: BackgroundTasks,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger CIF enrichment for companies missing CIF."""
+    err = _require_admin(request)
+    if err:
+        return err
     from app.config import settings
     if not settings.apiempresas_key:
         return {"error": "APIEMPRESAS_KEY not configured in .env"}
@@ -118,11 +138,15 @@ async def cif_stats(db: AsyncSession = Depends(get_db)):
 
 @router.post("/enrich-web")
 async def enrich_web(
+    request: Request,
     background_tasks: BackgroundTasks,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger web enrichment: search company websites for CIF, email, phone."""
+    err = _require_admin(request)
+    if err:
+        return err
     from app.services.web_enrichment import count_web_coverage, enrich_batch_web
 
     stats = await count_web_coverage(db)
@@ -148,10 +172,14 @@ async def web_stats(db: AsyncSession = Depends(get_db)):
 
 @router.post("/score-batch")
 async def score_batch_endpoint(
+    request: Request,
     background_tasks: BackgroundTasks,
     limit: int = 500,
 ):
     """Score a batch of companies for solvency."""
+    err = _require_admin(request)
+    if err:
+        return err
     from app.services.scoring_service import score_batch
 
     async def _run_scoring():

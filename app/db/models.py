@@ -28,7 +28,12 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
-    empresa: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    empresa: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    empresa_cif: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    telefono: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    email_verified: Mapped[bool] = mapped_column(Integer, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Integer, default=False)
+    verification_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, default="user")  # admin, user
     plan: Mapped[str] = mapped_column(Text, default="free")  # free, pro, enterprise
@@ -90,6 +95,10 @@ class Company(Base):
         Index("idx_companies_provincia", "provincia"),
         Index("idx_companies_forma", "forma_juridica"),
         Index("idx_companies_estado", "estado"),
+        Index("idx_companies_cif", "cif"),
+        Index("idx_companies_fecha_pub", "fecha_ultima_publicacion"),
+        Index("idx_companies_score", "score_solvencia"),
+        Index("idx_companies_cnae", "cnae_code"),
     )
 
 
@@ -312,6 +321,25 @@ class Alert(Base):
         Index("idx_alerts_user", "user_id"),
         Index("idx_alerts_leida", "leida"),
         Index("idx_alerts_created", "created_at"),
+    )
+
+
+class ApiKey(Base):
+    """Claves de API para integracion ERP."""
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    is_active: Mapped[bool] = mapped_column(Integer, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_api_keys_key", "key"),
+        Index("idx_api_keys_user", "user_id"),
     )
 
 

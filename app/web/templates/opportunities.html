@@ -36,7 +36,7 @@
         <div class="card p-6 mb-4">
             <h2 class="text-base font-bold text-gray-900 mb-1">Buscar empresa en todas las fuentes</h2>
             <p class="text-gray-400 text-xs mb-4">Busca por CIF o nombre fiscal si ha recibido subvenciones, licitaciones o tiene concursos de acreedores/embargos</p>
-            <form id="cross-form" class="flex gap-3 items-end flex-wrap">
+            <form id="cross-form" class="flex gap-3 items-end flex-wrap" onsubmit="return false">
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">CIF</label>
                     <input type="text" name="cif" placeholder="B12345678"
@@ -64,7 +64,7 @@
     <!-- Subsidies Tab -->
     <div id="panel-subsidies" class="hidden">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <form id="subsidies-form" class="flex gap-3 items-end flex-wrap">
+            <form id="subsidies-form" class="flex gap-3 items-end flex-wrap" onsubmit="return false">
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                     <input type="text" name="q" placeholder="Palabra clave..."
@@ -99,18 +99,15 @@
                 Actualizar BOE
             </button>
         </div>
-        <div id="subsidies-results"
-             hx-get="/opportunities/subsidies-results"
-             hx-trigger="load"
-             hx-include="#subsidies-form">
-            <div class="text-center py-12 text-gray-400 text-sm">Cargando subvenciones...</div>
+        <div id="subsidies-results">
+            <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar subvenciones</div>
         </div>
     </div>
 
     <!-- Tenders Tab -->
     <div id="panel-tenders" class="hidden">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <form id="tenders-form" class="flex gap-3 items-end flex-wrap">
+            <form id="tenders-form" class="flex gap-3 items-end flex-wrap" onsubmit="return false">
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                     <input type="text" name="q" placeholder="Palabra clave..."
@@ -150,18 +147,15 @@
                 Actualizar PLACSP
             </button>
         </div>
-        <div id="tenders-results"
-             hx-get="/opportunities/tenders-results"
-             hx-trigger="load"
-             hx-include="#tenders-form">
-            <div class="text-center py-12 text-gray-400 text-sm">Cargando licitaciones...</div>
+        <div id="tenders-results">
+            <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar licitaciones</div>
         </div>
     </div>
 
     <!-- Judicial Tab -->
     <div id="panel-judicial" class="hidden">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <form id="judicial-form" class="flex gap-3 items-end flex-wrap">
+            <form id="judicial-form" class="flex gap-3 items-end flex-wrap" onsubmit="return false">
                 <div>
                     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
                     <input type="text" name="q" placeholder="Empresa, deudor..."
@@ -201,11 +195,8 @@
                 Actualizar BOE Judicial
             </button>
         </div>
-        <div id="judicial-results"
-             hx-get="/opportunities/judicial-results"
-             hx-trigger="load"
-             hx-include="#judicial-form">
-            <div class="text-center py-12 text-gray-400 text-sm">Cargando anuncios judiciales...</div>
+        <div id="judicial-results">
+            <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar anuncios judiciales</div>
         </div>
     </div>
 </div>

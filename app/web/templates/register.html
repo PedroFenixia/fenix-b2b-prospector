@@ -14,7 +14,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
                     colors: {
-                        brand: { 50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 500: '#dc2626', 600: '#b91c1c', 700: '#991b1b', 800: '#7f1d1d' },
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#0d9488', 600: '#0f766e', 700: '#115e59', 800: '#134e4a' },
                     }
                 }
             }
@@ -22,7 +22,7 @@
     </script>
     <style>
         body { -webkit-font-smoothing: antialiased; letter-spacing: -.01em; }
-        ::selection { background: #dc2626; color: #fff; }
+        ::selection { background: #0d9488; color: #fff; }
     </style>
 </head>
 <body class="h-full bg-gray-900 font-sans flex flex-col min-h-screen">
@@ -43,41 +43,62 @@
                 {% endif %}
 
                 <form method="post" action="/register" class="space-y-4">
-                    <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Nombre</label>
-                        <input type="text" name="nombre" required autofocus
-                               value="{{ nombre|default('', true) }}"
-                               class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                               placeholder="Tu nombre">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Nombre *</label>
+                            <input type="text" name="nombre" required autofocus
+                                   value="{{ nombre|default('', true) }}"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                                   placeholder="Tu nombre">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Email *</label>
+                            <input type="email" name="email" required
+                                   value="{{ email|default('', true) }}"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                                   placeholder="tu@email.com">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Empresa *</label>
+                            <input type="text" name="empresa" required
+                                   value="{{ empresa|default('', true) }}"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                                   placeholder="Nombre de tu empresa">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">CIF Empresa *</label>
+                            <input type="text" name="empresa_cif" required
+                                   value="{{ empresa_cif|default('', true) }}"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition uppercase"
+                                   placeholder="B12345678" maxlength="9">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Email</label>
-                        <input type="email" name="email" required
-                               value="{{ email|default('', true) }}"
+                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Telefono de contacto *</label>
+                        <input type="tel" name="telefono" required
+                               value="{{ telefono|default('', true) }}"
                                class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                               placeholder="tu@email.com">
+                               placeholder="+34 600 123 456">
                     </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Empresa <span class="text-gray-600 normal-case">(opcional)</span></label>
-                        <input type="text" name="empresa"
-                               value="{{ empresa|default('', true) }}"
-                               class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                               placeholder="Nombre de tu empresa">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Contrasena *</label>
+                            <input type="password" name="password" required minlength="6"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                                   placeholder="Min. 6 caracteres">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Repetir *</label>
+                            <input type="password" name="password2" required minlength="6"
+                                   class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                                   placeholder="Repite contrasena">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Contrasena</label>
-                        <input type="password" name="password" required minlength="6"
-                               class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                               placeholder="Minimo 6 caracteres">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Repetir contrasena</label>
-                        <input type="password" name="password2" required minlength="6"
-                               class="w-full rounded-xl border border-gray-600 bg-gray-700/50 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
-                               placeholder="Repite tu contrasena">
-                    </div>
+                    <p class="text-[10px] text-gray-500 mt-1">Se enviara un codigo de verificacion a tu email y telefono</p>
                     <button type="submit"
-                            class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(220,38,38,.3)] hover:shadow-[0_6px_28px_rgba(220,38,38,.4)] hover:-translate-y-0.5 transform mt-2">
+                            class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_16px_rgba(13,148,136,.3)] hover:shadow-[0_6px_28px_rgba(13,148,136,.4)] hover:-translate-y-0.5 transform mt-2">
                         Crear cuenta gratis
                     </button>
                 </form>

@@ -1,6 +1,9 @@
 """Signed-cookie session auth with database users and bcrypt."""
 from __future__ import annotations
 
+import asyncio
+from functools import partial
+
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from passlib.hash import bcrypt
 
@@ -23,13 +26,28 @@ PLAN_LIMITS = {
     "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "scoring": True, "enrichment": True},
 }
 
+# Lower bcrypt rounds for faster login (default 12 → 8, ~15x faster, still secure)
+_bcrypt = bcrypt.using(rounds=8)
+
 
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return _bcrypt.hash(password)
 
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.verify(password, hashed)
+
+
+async def hash_password_async(password: str) -> str:
+    """Hash password without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, hash_password, password)
+
+
+async def verify_password_async(password: str, hashed: str) -> bool:
+    """Verify password without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, verify_password, password, hashed)
 
 
 def create_session(user_id: int, email: str, role: str = "user", plan: str = "free") -> str:
@@ -64,19 +82,25 @@ async def authenticate_user(email: str, password: str, db: AsyncSession):
     from app.db.models import User
     result = await db.execute(select(User).where(User.email == email, User.is_active == True))
     user = result.scalar_one_or_none()
-    if user and verify_password(password, user.password_hash):
+    if user and await verify_password_async(password, user.password_hash):
         return user
     return None
 
 
-async def create_user(email: str, nombre: str, password: str, db: AsyncSession, empresa: str = None, role: str = "user", plan: str = "free"):
+async def create_user(
+    email: str, nombre: str, password: str, db: AsyncSession,
+    empresa: str = None, empresa_cif: str = None, telefono: str = None,
+    role: str = "user", plan: str = "free",
+):
     """Create a new user. Returns User or raises."""
     from app.db.models import User
     user = User(
         email=email.lower().strip(),
         nombre=nombre.strip(),
-        empresa=empresa,
-        password_hash=hash_password(password),
+        empresa=empresa or "",
+        empresa_cif=empresa_cif,
+        telefono=telefono,
+        password_hash=await hash_password_async(password),
         role=role,
         plan=plan,
     )
@@ -84,6 +108,28 @@ async def create_user(email: str, nombre: str, password: str, db: AsyncSession, 
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def get_api_key_user(request: Request, db: AsyncSession) -> dict | None:
+    """Valida X-API-Key header. Retorna user data o None."""
+    api_key = request.headers.get("X-API-Key", "")
+    if not api_key:
+        return None
+
+    from app.db.models import ApiKey, User
+    result = await db.execute(
+        select(ApiKey, User).join(User, ApiKey.user_id == User.id).where(
+            ApiKey.key == api_key,
+            ApiKey.is_active == True,
+            User.is_active == True,
+        )
+    )
+    row = result.first()
+    if not row:
+        return None
+
+    ak, user = row
+    return {"user_id": user.id, "email": user.email, "role": user.role, "plan": user.plan}
 
 
 async def seed_default_users(db: AsyncSession):

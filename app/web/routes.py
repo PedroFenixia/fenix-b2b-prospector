@@ -16,6 +16,7 @@ from app.auth import (
     get_current_user,
     PLAN_LIMITS,
 )
+from app.config import settings
 from app.db.engine import get_db
 from app.schemas.opportunity import OpportunityFilters
 from app.schemas.search import SearchFilters
@@ -78,6 +79,17 @@ async def login_submit(request: Request, db: AsyncSession = Depends(get_db)):
 
     user = await authenticate_user(email, password, db)
     if user:
+        # If email not verified and SMTP is configured, redirect to verification
+        if not user.email_verified and settings.smtp_host:
+            from app.services.email_service import generate_code, send_verification_email
+            code = generate_code()
+            user.verification_code = code
+            await db.commit()
+            await send_verification_email(email, code, user.nombre)
+            return templates.TemplateResponse("verify_email.html", {
+                "request": request, "email": email,
+            })
+
         token = create_session(user.id, user.email, user.role, user.plan)
         response = RedirectResponse(url="/", status_code=302)
         response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400)
@@ -103,26 +115,39 @@ async def register_submit(request: Request, db: AsyncSession = Depends(get_db)):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     nombre = form.get("nombre", "").strip()
-    empresa = form.get("empresa", "").strip() or None
+    empresa = form.get("empresa", "").strip()
+    empresa_cif = form.get("empresa_cif", "").strip().upper()
+    telefono = form.get("telefono", "").strip()
     password = form.get("password", "")
     password2 = form.get("password2", "")
 
-    if not email or not nombre or not password:
+    form_data = {"email": email, "nombre": nombre, "empresa": empresa,
+                 "empresa_cif": empresa_cif, "telefono": telefono}
+
+    if not all([email, nombre, empresa, empresa_cif, telefono, password]):
         return templates.TemplateResponse("register.html", {
-            "request": request, "error": "Todos los campos son obligatorios",
-            "email": email, "nombre": nombre, "empresa": empresa,
+            "request": request, "error": "Todos los campos marcados con * son obligatorios",
+            **form_data,
         }, status_code=400)
 
     if password != password2:
         return templates.TemplateResponse("register.html", {
             "request": request, "error": "Las contrasenas no coinciden",
-            "email": email, "nombre": nombre, "empresa": empresa,
+            **form_data,
         }, status_code=400)
 
     if len(password) < 6:
         return templates.TemplateResponse("register.html", {
             "request": request, "error": "La contrasena debe tener al menos 6 caracteres",
-            "email": email, "nombre": nombre, "empresa": empresa,
+            **form_data,
+        }, status_code=400)
+
+    # Validate CIF format (letter + 8 digits, or 8 digits + letter)
+    import re
+    if not re.match(r'^[A-Z]\d{8}$|^\d{8}[A-Z]$', empresa_cif):
+        return templates.TemplateResponse("register.html", {
+            "request": request, "error": "CIF no valido. Formato: B12345678",
+            **form_data,
         }, status_code=400)
 
     # Check if email exists
@@ -132,19 +157,102 @@ async def register_submit(request: Request, db: AsyncSession = Depends(get_db)):
     if existing:
         return templates.TemplateResponse("register.html", {
             "request": request, "error": "Ya existe una cuenta con ese email",
-            "nombre": nombre, "empresa": empresa,
+            **form_data,
         }, status_code=400)
 
-    user = await create_user(email, nombre, password, db, empresa=empresa)
+    user = await create_user(email, nombre, password, db,
+                             empresa=empresa, empresa_cif=empresa_cif, telefono=telefono)
+
+    # Send verification email
+    from app.services.email_service import generate_code, send_verification_email
+    code = generate_code()
+    user.verification_code = code
+    await db.commit()
+    await send_verification_email(email, code, nombre)
+
+    # Redirect to verification page (don't login yet)
+    return templates.TemplateResponse("verify_email.html", {
+        "request": request, "email": email,
+    })
+
+
+@web_router.post("/verify-email")
+async def verify_email_submit(request: Request, db: AsyncSession = Depends(get_db)):
+    form = await request.form()
+    email = form.get("email", "").strip().lower()
+    code = form.get("code", "").strip()
+
+    from sqlalchemy import select
+    from app.db.models import User
+    user = await db.scalar(select(User).where(User.email == email))
+
+    if not user:
+        return templates.TemplateResponse("verify_email.html", {
+            "request": request, "email": email, "error": "Usuario no encontrado",
+        }, status_code=400)
+
+    if user.email_verified:
+        # Already verified, redirect to login
+        return RedirectResponse(url="/login", status_code=302)
+
+    if user.verification_code != code:
+        return templates.TemplateResponse("verify_email.html", {
+            "request": request, "email": email, "error": "Codigo incorrecto",
+        }, status_code=400)
+
+    # Mark as verified and login
+    user.email_verified = True
+    user.verification_code = None
+    await db.commit()
+
     token = create_session(user.id, user.email, user.role, user.plan)
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(SESSION_COOKIE, token, httponly=True, max_age=86400)
     return response
 
 
+@web_router.post("/verify-email/resend")
+async def verify_email_resend(request: Request, db: AsyncSession = Depends(get_db)):
+    form = await request.form()
+    email = form.get("email", "").strip().lower()
+
+    from sqlalchemy import select
+    from app.db.models import User
+    user = await db.scalar(select(User).where(User.email == email))
+
+    if user and not user.email_verified:
+        from app.services.email_service import generate_code, send_verification_email
+        code = generate_code()
+        user.verification_code = code
+        await db.commit()
+        await send_verification_email(email, code, user.nombre)
+
+    return templates.TemplateResponse("verify_email.html", {
+        "request": request, "email": email,
+        "success": "Codigo reenviado. Revisa tu bandeja de entrada.",
+    })
+
+
 @web_router.get("/pricing", response_class=HTMLResponse)
 async def pricing_page(request: Request):
-    return templates.TemplateResponse("pricing.html", {"request": request})
+    # Check auth manually since /pricing is a public path
+    user = get_current_user(request)
+    return templates.TemplateResponse("pricing.html", {"request": request, "user": user})
+
+
+@web_router.get("/legal/terminos", response_class=HTMLResponse)
+async def legal_terminos(request: Request):
+    return templates.TemplateResponse("legal_terminos.html", _ctx(request, active_page="legal"))
+
+
+@web_router.get("/legal/privacidad", response_class=HTMLResponse)
+async def legal_privacidad(request: Request):
+    return templates.TemplateResponse("legal_privacidad.html", _ctx(request, active_page="legal"))
+
+
+@web_router.get("/legal/cookies", response_class=HTMLResponse)
+async def legal_cookies(request: Request):
+    return templates.TemplateResponse("legal_cookies.html", _ctx(request, active_page="legal"))
 
 
 @web_router.get("/logout")
@@ -162,6 +270,22 @@ async def account_page(request: Request, db: AsyncSession = Depends(get_db)):
     db_user = await db.get(User, user["user_id"])
     return templates.TemplateResponse("account.html", _ctx(
         request, active_page="account", db_user=db_user,
+    ))
+
+
+# --- Admin ---
+
+@web_router.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = getattr(request.state, "user", None)
+    if not user or user.get("role") != "admin":
+        return RedirectResponse(url="/", status_code=302)
+    from sqlalchemy import select
+    from app.db.models import User
+    result = await db.scalars(select(User).order_by(User.created_at.desc()))
+    users = result.all()
+    return templates.TemplateResponse("admin_users.html", _ctx(
+        request, users=users, active_page="admin",
     ))
 
 
@@ -205,6 +329,29 @@ async def search_results(
     per_page: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
+    # Check search limits for free users
+    user = getattr(request.state, "user", None)
+    if user and page == 1:  # Only count on first page (new search)
+        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
+        if limits["searches"] != -1:
+            from app.db.models import User
+            from datetime import datetime as _dt
+            db_user = await db.get(User, user["user_id"])
+            if db_user:
+                current_month = _dt.now().strftime("%Y-%m")
+                if db_user.month_reset != current_month:
+                    db_user.searches_this_month = 0
+                    db_user.exports_this_month = 0
+                    db_user.month_reset = current_month
+                if db_user.searches_this_month >= limits["searches"]:
+                    return HTMLResponse(
+                        '<div class="text-center py-8 text-red-500 text-sm font-medium">'
+                        f'Has alcanzado el limite de {limits["searches"]} busquedas/mes. '
+                        '<a href="/pricing" class="underline">Mejora tu plan</a> para busquedas ilimitadas.</div>'
+                    )
+                db_user.searches_this_month += 1
+                await db.commit()
+
     filters = SearchFilters(
         q=q, cif=cif, provincia=provincia, forma_juridica=forma_juridica,
         cnae_code=cnae_code, estado=estado,
@@ -241,6 +388,9 @@ async def company_detail(
 
 @web_router.get("/ingestion", response_class=HTMLResponse)
 async def ingestion_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = getattr(request.state, "user", None)
+    if not user or user.get("role") != "admin":
+        return RedirectResponse(url="/", status_code=302)
     from sqlalchemy import select
     from app.db.models import IngestionLog
 

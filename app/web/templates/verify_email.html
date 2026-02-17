@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Verificar email - FENIX B2B Prospector{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12">
+    <div class="card p-8 space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-50 flex items-center justify-center">
+                <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-extrabold text-gray-900">Verifica tu email</h1>
+            <p class="text-sm text-gray-500 mt-2">
+                Hemos enviado un codigo de 6 digitos a<br>
+                <strong class="text-gray-700">{{ email }}</strong>
+            </p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">{{ error }}</div>
+        {% endif %}
+
+        {% if success %}
+        <div class="bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm font-medium">{{ success }}</div>
+        {% endif %}
+
+        <form method="POST" action="/verify-email" class="space-y-4">
+            <input type="hidden" name="email" value="{{ email }}">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Codigo de verificacion</label>
+                <input type="text" name="code" maxlength="6" pattern="\d{6}" inputmode="numeric"
+                       class="w-full px-4 py-3 border border-gray-200 rounded-xl text-center text-2xl font-mono font-bold tracking-[0.5em] focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+                       placeholder="000000" required autofocus>
+            </div>
+            <button type="submit"
+                    class="w-full py-3 bg-brand-500 text-white rounded-xl font-semibold text-sm hover:bg-brand-600 transition shadow-[0_2px_12px_rgba(13,148,136,.2)]">
+                Verificar
+            </button>
+        </form>
+
+        <div class="text-center">
+            <form method="POST" action="/verify-email/resend" class="inline">
+                <input type="hidden" name="email" value="{{ email }}">
+                <button type="submit" class="text-sm text-brand-500 hover:text-brand-600 font-medium transition">
+                    Reenviar codigo
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-400">
+            El codigo expira en 30 minutos
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -15,7 +15,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
                     colors: {
-                        brand: { 50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 500: '#dc2626', 600: '#b91c1c', 700: '#991b1b', 800: '#7f1d1d' },
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#0d9488', 600: '#0f766e', 700: '#115e59', 800: '#134e4a' },
                     },
                     borderRadius: { '2xl': '16px', '3xl': '20px' },
                 }
@@ -29,11 +29,26 @@
         .htmx-request.htmx-indicator { display: inline-flex; }
         .card { background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.03); transition: all .3s; }
         .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.04); }
-        .btn-primary { background: #dc2626; color: #fff; box-shadow: 0 2px 12px rgba(220,38,38,.2); }
-        .btn-primary:hover { background: #b91c1c; box-shadow: 0 6px 24px rgba(220,38,38,.28); transform: translateY(-1px); }
-        ::selection { background: #dc2626; color: #fff; }
-        .nav-link { position: relative; }
-        .nav-link.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #dc2626; border-radius: 2px; }
+        .btn-primary { background: #0d9488; color: #fff; box-shadow: 0 2px 12px rgba(13,148,136,.2); }
+        .btn-primary:hover { background: #0f766e; box-shadow: 0 6px 24px rgba(13,148,136,.28); transform: translateY(-1px); }
+        ::selection { background: #0d9488; color: #fff; }
+        .nav-link { position: relative; transition: color .15s, background .15s; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #0d9488; border-radius: 2px; }
+
+        /* Page entrance animation */
+        main { animation: pageIn .22s ease-out; }
+        @keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* HTMX swap transitions */
+        .htmx-swapping { opacity: 0; transition: opacity .12s ease-out; }
+        .htmx-settling { transition: opacity .18s ease-in; }
+
+        /* Loading shimmer */
+        .htmx-request .htmx-indicator { animation: pulse 1s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+        /* Table rows */
+        tbody tr { transition: background .12s; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col font-sans text-gray-600">
@@ -65,10 +80,16 @@
                            class="nav-link px-3 py-2 rounded-lg text-sm font-medium transition {% if active_page == 'watchlist' %}text-brand-500 active{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-50{% endif %}">
                             Vigilancia
                         </a>
+                        {% if user and user.role == 'admin' %}
+                        <a href="/admin/users"
+                           class="nav-link px-3 py-2 rounded-lg text-sm font-medium transition {% if active_page == 'admin' %}text-brand-500 active{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-50{% endif %}">
+                            Usuarios
+                        </a>
                         <a href="/ingestion"
                            class="nav-link px-3 py-2 rounded-lg text-sm font-medium transition {% if active_page == 'ingestion' %}text-brand-500 active{% else %}text-gray-500 hover:text-gray-900 hover:bg-gray-50{% endif %}">
                             Carga de datos
                         </a>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
@@ -103,9 +124,9 @@
                 <div class="flex items-center gap-4 text-xs">
                     <a href="https://www.fenixia.tech" class="text-gray-400 hover:text-gray-700 transition" target="_blank">fenixia.tech</a>
                     <a href="mailto:info@fenixia.tech" class="text-gray-400 hover:text-gray-700 transition">info@fenixia.tech</a>
-                    <a href="https://www.fenixia.tech/terminos" class="text-gray-400 hover:text-gray-700 transition" target="_blank">T&eacute;rminos</a>
-                    <a href="https://www.fenixia.tech/privacidad" class="text-gray-400 hover:text-gray-700 transition" target="_blank">Privacidad</a>
-                    <a href="https://www.fenixia.tech/cookies" class="text-gray-400 hover:text-gray-700 transition" target="_blank">Cookies</a>
+                    <a href="/legal/terminos" class="text-gray-400 hover:text-gray-700 transition">T&eacute;rminos</a>
+                    <a href="/legal/privacidad" class="text-gray-400 hover:text-gray-700 transition">Privacidad</a>
+                    <a href="/legal/cookies" class="text-gray-400 hover:text-gray-700 transition">Cookies</a>
                 </div>
             </div>
             <p class="text-center text-gray-300 text-xs">&copy; 2026 FENIX IA SOLUTIONS &mdash; Todos los derechos reservados</p>
