@@ -103,21 +103,44 @@ async def enrich_cif(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    """Trigger full CIF + web enrichment for ALL companies."""
+    """Trigger CIF enrichment for all companies without CIF."""
     err = _require_admin(request)
     if err:
         return err
-    from app.scheduler import full_enrichment, is_enrichment_running
+    from app.scheduler import enrichment_cif, is_cif_running
     from app.services.cif_enrichment import count_missing_cif
 
-    if is_enrichment_running():
-        return {"error": "El enriquecimiento ya está en ejecución"}
+    if is_cif_running():
+        return {"error": "El enriquecimiento CIF ya esta en ejecucion"}
 
     stats = await count_missing_cif(db)
-    background_tasks.add_task(full_enrichment)
+    background_tasks.add_task(enrichment_cif)
     return {
-        "message": f"Enriquecimiento completo iniciado ({stats['without_cif']} sin CIF)",
+        "message": f"Enriquecimiento CIF iniciado ({stats['without_cif']} sin CIF)",
         "missing_cif": stats,
+    }
+
+
+@router.post("/enrich-web")
+async def enrich_web(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger web/contact enrichment for all active companies without web."""
+    err = _require_admin(request)
+    if err:
+        return err
+    from app.scheduler import enrichment_web, is_web_running
+    from app.services.web_enrichment import count_web_coverage
+
+    if is_web_running():
+        return {"error": "El enriquecimiento web ya esta en ejecucion"}
+
+    stats = await count_web_coverage(db)
+    background_tasks.add_task(enrichment_web)
+    return {
+        "message": f"Enriquecimiento contacto iniciado ({stats.get('without_web', 0)} sin web)",
     }
 
 
@@ -131,22 +154,51 @@ async def cif_stats(db: AsyncSession = Depends(get_db)):
 @router.get("/enrichment-status")
 async def enrichment_status():
     """Check if enrichment is running with live progress stats."""
-    from app.scheduler import is_enrichment_running, get_enrichment_stats
-    stats = get_enrichment_stats()
-    return {"running": is_enrichment_running(), **stats}
+    from app.scheduler import get_cif_enrichment_stats, get_web_enrichment_stats, get_enrichment_stats
+    return {
+        **get_enrichment_stats(),
+        "cif": get_cif_enrichment_stats(),
+        "web": get_web_enrichment_stats(),
+    }
+
+
+@router.post("/stop-cif-enrichment")
+async def stop_cif_enrichment_endpoint(request: Request):
+    """Stop the CIF enrichment process."""
+    err = _require_admin(request)
+    if err:
+        return err
+    from app.scheduler import is_cif_running, stop_cif_enrichment
+    if not is_cif_running():
+        return {"error": "El enriquecimiento CIF no esta en ejecucion"}
+    stop_cif_enrichment()
+    return {"message": "CIF: senal de parada enviada"}
+
+
+@router.post("/stop-web-enrichment")
+async def stop_web_enrichment_endpoint(request: Request):
+    """Stop the web enrichment process."""
+    err = _require_admin(request)
+    if err:
+        return err
+    from app.scheduler import is_web_running, stop_web_enrichment
+    if not is_web_running():
+        return {"error": "El enriquecimiento web no esta en ejecucion"}
+    stop_web_enrichment()
+    return {"message": "Web: senal de parada enviada"}
 
 
 @router.post("/stop-enrichment")
 async def stop_enrichment_endpoint(request: Request):
-    """Stop the running enrichment process."""
+    """Stop all enrichment processes."""
     err = _require_admin(request)
     if err:
         return err
     from app.scheduler import is_enrichment_running, stop_enrichment
     if not is_enrichment_running():
-        return {"error": "No hay enriquecimiento en ejecución"}
+        return {"error": "No hay enriquecimiento en ejecucion"}
     stop_enrichment()
-    return {"message": "Señal de parada enviada"}
+    return {"message": "Senal de parada enviada"}
 
 
 @router.get("/web-stats")

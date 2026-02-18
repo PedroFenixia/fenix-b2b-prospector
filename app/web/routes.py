@@ -420,6 +420,13 @@ async def company_detail(
     company = await get_company(company_id, db)
     if not company:
         return HTMLResponse("<h1>Empresa no encontrada</h1>", status_code=404)
+
+    # Auto-compute score if not yet calculated
+    if company.score_solvencia is None:
+        from app.services.scoring_service import score_company
+        await score_company(company_id, db)
+        await db.refresh(company)
+
     watched = await is_watched(company_id, db, user_id=user_id)
     from app.utils.cnae import get_cnae_description
     cnae_desc = get_cnae_description(company.cnae_code) if company.cnae_code else None

@@ -83,41 +83,72 @@
         </div>
     </div>
 
-    <!-- Enrichment -->
+    <!-- CIF Enrichment -->
     <div class="card p-6">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-3">
             <div>
-                <h2 class="text-base font-bold text-gray-900">Enriquecimiento</h2>
-                <p class="text-xs text-gray-400 mt-0.5">Busca CIF (Google), web, email y tel&eacute;fono para todas las empresas sin datos</p>
+                <h2 class="text-base font-bold text-gray-900">Enriquecimiento CIF</h2>
+                <p class="text-xs text-gray-400 mt-0.5">Busca el CIF de todas las empresas sin identificar</p>
             </div>
             <div id="cif-stats" class="text-right">
-                <span class="text-xs text-gray-400">Cargando cobertura...</span>
+                <span class="text-xs text-gray-400">Cargando...</span>
             </div>
-        </div>
-        <div id="web-stats" class="mb-3">
-            <span class="text-xs text-gray-400">Cargando...</span>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-            <button id="btn-enrich" onclick="startEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
-                Iniciar enriquecimiento completo
+            <button type="button" id="btn-enrich-cif" onclick="startCifEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Enriquecer CIF
             </button>
-            <button id="btn-stop-enrich" onclick="stopEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
+            <button type="button" id="btn-stop-cif" onclick="stopCifEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
                 Parar
             </button>
-            <span id="enrich-status" class="text-sm text-gray-500"></span>
+            <span id="cif-enrich-status" class="text-sm text-gray-500"></span>
         </div>
-        <!-- Live progress -->
-        <div id="enrich-progress-wrap" class="hidden mt-4 space-y-2">
+        <div id="cif-progress-wrap" class="hidden mt-4 space-y-2">
             <div class="flex items-center justify-between text-xs text-gray-500">
-                <span id="enrich-phase" class="font-semibold"></span>
-                <span id="enrich-pct" class="font-mono"></span>
+                <span class="font-semibold">CIF</span>
+                <span id="cif-pct" class="font-mono"></span>
             </div>
             <div class="rounded-full bg-gray-100 h-2.5 overflow-hidden">
-                <div id="enrich-bar" class="h-full bg-gray-800 rounded-full transition-all duration-700" style="width:0%"></div>
+                <div id="cif-bar" class="h-full bg-gray-800 rounded-full transition-all duration-700" style="width:0%"></div>
             </div>
             <div class="flex items-center justify-between text-[10px] text-gray-400">
-                <span id="enrich-detail"></span>
-                <span id="enrich-current" class="truncate max-w-[200px]"></span>
+                <span id="cif-detail"></span>
+                <span id="cif-current" class="truncate max-w-[200px]"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web/Contact Enrichment -->
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h2 class="text-base font-bold text-gray-900">Enriquecimiento Contacto</h2>
+                <p class="text-xs text-gray-400 mt-0.5">Busca web, email y tel&eacute;fono para empresas activas sin datos</p>
+            </div>
+            <div id="web-stats" class="text-right">
+                <span class="text-xs text-gray-400">Cargando...</span>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <button type="button" id="btn-enrich-web" onclick="startWebEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Enriquecer Contacto
+            </button>
+            <button type="button" id="btn-stop-web" onclick="stopWebEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
+                Parar
+            </button>
+            <span id="web-enrich-status" class="text-sm text-gray-500"></span>
+        </div>
+        <div id="web-progress-wrap" class="hidden mt-4 space-y-2">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+                <span class="font-semibold">Contacto</span>
+                <span id="web-pct" class="font-mono"></span>
+            </div>
+            <div class="rounded-full bg-gray-100 h-2.5 overflow-hidden">
+                <div id="web-bar" class="h-full bg-gray-800 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-gray-400">
+                <span id="web-detail"></span>
+                <span id="web-current" class="truncate max-w-[200px]"></span>
             </div>
         </div>
     </div>
@@ -247,137 +278,143 @@ const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 document.getElementById('fecha_hasta').value = today;
 document.getElementById('fecha_desde').value = weekAgo;
 
-// Load CIF stats
-(async function() {
-    try {
-        const resp = await fetch('/api/ingestion/cif-stats');
-        const data = await resp.json();
-        document.getElementById('cif-stats').innerHTML =
-            '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + data.coverage_pct + '%</span> <span class="text-gray-400">cobertura CIF</span></p>' +
-            '<p class="text-[10px] text-gray-400">' + data.with_cif + ' con CIF / ' + data.without_cif + ' sin CIF</p>';
-    } catch(e) {}
-})();
+// Load stats on page load
+_refreshStats();
 
-// Load web stats
-(async function() {
-    try {
-        const resp = await fetch('/api/ingestion/web-stats');
-        const data = await resp.json();
-        document.getElementById('web-stats').innerHTML =
-            '<p class="text-[10px] text-gray-400">' + data.with_web + ' con web / ' + data.with_email + ' con email / ' + data.with_phone + ' con tel</p>';
-    } catch(e) {}
-})();
+/* === Enrichment (CIF + Web separated) === */
+let _cifPollTimer = null;
+let _webPollTimer = null;
 
-/* === Enrichment === */
-let _enrichPollTimer = null;
-
-function showRunningState() {
-    document.getElementById('btn-enrich').textContent = 'En ejecucion...';
-    document.getElementById('btn-enrich').disabled = true;
-    document.getElementById('btn-enrich').classList.add('opacity-50');
-    document.getElementById('btn-stop-enrich').classList.remove('hidden');
-    document.getElementById('enrich-progress-wrap').classList.remove('hidden');
-    if (!_enrichPollTimer) _enrichPollTimer = setInterval(pollEnrichment, 3000);
+function _showRunning(type) {
+    document.getElementById('btn-enrich-' + type).disabled = true;
+    document.getElementById('btn-enrich-' + type).classList.add('opacity-50');
+    document.getElementById('btn-stop-' + type).classList.remove('hidden');
+    document.getElementById(type + '-progress-wrap').classList.remove('hidden');
 }
 
-function showIdleState() {
-    document.getElementById('btn-enrich').textContent = 'Iniciar enriquecimiento completo';
-    document.getElementById('btn-enrich').disabled = false;
-    document.getElementById('btn-enrich').classList.remove('opacity-50');
-    document.getElementById('btn-stop-enrich').classList.add('hidden');
-    if (_enrichPollTimer) { clearInterval(_enrichPollTimer); _enrichPollTimer = null; }
-    setTimeout(() => document.getElementById('enrich-progress-wrap').classList.add('hidden'), 2000);
+function _showIdle(type) {
+    document.getElementById('btn-enrich-' + type).disabled = false;
+    document.getElementById('btn-enrich-' + type).classList.remove('opacity-50');
+    document.getElementById('btn-stop-' + type).classList.add('hidden');
+    setTimeout(() => document.getElementById(type + '-progress-wrap').classList.add('hidden'), 2000);
 }
 
-function updateEnrichUI(data) {
-    const phase = data.phase || '';
-    const phaseEl = document.getElementById('enrich-phase');
-    const barEl = document.getElementById('enrich-bar');
-    const pctEl = document.getElementById('enrich-pct');
-    const detailEl = document.getElementById('enrich-detail');
-    const currentEl = document.getElementById('enrich-current');
-
-    let attempted = 0, total = 0, found = 0, label = '';
-    if (phase === 'cif') {
-        attempted = data.cif_attempted || 0;
-        total = data.cif_total || 1;
-        found = data.cif_found || 0;
-        label = 'Fase 1: CIF';
-    } else if (phase === 'web') {
-        attempted = data.web_attempted || 0;
-        total = data.web_total || 1;
-        found = data.web_found || 0;
-        label = 'Fase 2: Web';
-    }
-
+function _updateProgress(type, stats) {
+    const attempted = stats.attempted || 0;
+    const total = stats.total || 1;
+    const found = stats.found || 0;
     const pct = total > 0 ? Math.round((attempted / total) * 100) : 0;
-    phaseEl.textContent = label;
-    barEl.style.width = pct + '%';
-    pctEl.textContent = pct + '% (' + attempted + '/' + total + ')';
-    detailEl.textContent = 'Encontrados: ' + found + ' | Errores: ' + (data.errors || 0);
-    currentEl.textContent = data.current_company || '';
+    document.getElementById(type + '-bar').style.width = pct + '%';
+    document.getElementById(type + '-pct').textContent = pct + '% (' + attempted + '/' + total + ')';
+    document.getElementById(type + '-detail').textContent = 'Encontrados: ' + found + ' | Errores: ' + (stats.errors || 0);
+    document.getElementById(type + '-current').textContent = stats.current_company || '';
 }
 
-async function pollEnrichment() {
+async function _pollStatus() {
     try {
         const resp = await fetch('/api/ingestion/enrichment-status');
         const data = await resp.json();
-        if (data.running) {
-            updateEnrichUI(data);
-            // Also refresh CIF/web stats
-            try {
-                const r2 = await fetch('/api/ingestion/cif-stats');
-                const d2 = await r2.json();
-                document.getElementById('cif-stats').innerHTML =
-                    '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + d2.coverage_pct + '%</span> <span class="text-gray-400">cobertura CIF</span></p>' +
-                    '<p class="text-[10px] text-gray-400">' + d2.with_cif + ' con CIF / ' + d2.without_cif + ' sin CIF</p>';
-            } catch(e) {}
-        } else {
-            showIdleState();
-            document.getElementById('enrich-status').textContent = data.phase === 'done' ? 'Completado' : (data.phase === 'stopped' ? 'Detenido' : '');
+        // CIF
+        if (data.cif && data.cif.running) {
+            _showRunning('cif');
+            _updateProgress('cif', data.cif);
+        } else if (_cifPollTimer) {
+            _showIdle('cif');
+            clearInterval(_cifPollTimer); _cifPollTimer = null;
+            document.getElementById('cif-enrich-status').textContent = 'Completado';
+            _refreshStats();
+        }
+        // Web
+        if (data.web && data.web.running) {
+            _showRunning('web');
+            _updateProgress('web', data.web);
+        } else if (_webPollTimer) {
+            _showIdle('web');
+            clearInterval(_webPollTimer); _webPollTimer = null;
+            document.getElementById('web-enrich-status').textContent = 'Completado';
+            _refreshStats();
         }
     } catch(e) {}
 }
 
-// Check on page load
-(async function() {
+async function _refreshStats() {
     try {
-        const resp = await fetch('/api/ingestion/enrichment-status');
-        const data = await resp.json();
-        if (data.running) {
-            showRunningState();
-            updateEnrichUI(data);
-            document.getElementById('enrich-status').textContent = 'Proceso en segundo plano activo';
-        }
+        const r1 = await fetch('/api/ingestion/cif-stats');
+        const d1 = await r1.json();
+        document.getElementById('cif-stats').innerHTML =
+            '<p class="text-sm font-mono"><span class="font-bold text-gray-900">' + d1.coverage_pct + '%</span> <span class="text-gray-400">cobertura CIF</span></p>' +
+            '<p class="text-[10px] text-gray-400">' + d1.with_cif + ' con CIF / ' + d1.without_cif + ' sin CIF</p>';
     } catch(e) {}
-})();
+    try {
+        const r2 = await fetch('/api/ingestion/web-stats');
+        const d2 = await r2.json();
+        document.getElementById('web-stats').innerHTML =
+            '<p class="text-[10px] text-gray-400">' + d2.with_web + ' con web / ' + d2.with_email + ' con email / ' + d2.with_phone + ' con tel</p>';
+    } catch(e) {}
+}
 
-async function startEnrichment() {
-    const statusEl = document.getElementById('enrich-status');
+async function startCifEnrichment() {
+    const statusEl = document.getElementById('cif-enrich-status');
     try {
         const resp = await fetch('/api/ingestion/enrich-cif', { method: 'POST' });
         const data = await resp.json();
-        if (data.error) {
-            statusEl.textContent = data.error;
-        } else {
-            statusEl.textContent = data.message;
-            showRunningState();
-        }
-    } catch(e) {
-        statusEl.textContent = 'Error: ' + e.message;
-    }
+        if (data.error) { statusEl.textContent = data.error; return; }
+        statusEl.textContent = data.message;
+        _showRunning('cif');
+        if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
+    } catch(e) { statusEl.textContent = 'Error: ' + e.message; }
 }
 
-async function stopEnrichment() {
-    const statusEl = document.getElementById('enrich-status');
+async function stopCifEnrichment() {
     try {
-        const resp = await fetch('/api/ingestion/stop-enrichment', { method: 'POST' });
+        const resp = await fetch('/api/ingestion/stop-cif-enrichment', { method: 'POST' });
         const data = await resp.json();
-        statusEl.textContent = data.message || data.error;
-        showIdleState();
-    } catch(e) {
-        statusEl.textContent = 'Error: ' + e.message;
-    }
+        document.getElementById('cif-enrich-status').textContent = data.message || data.error;
+        _showIdle('cif');
+        if (_cifPollTimer) { clearInterval(_cifPollTimer); _cifPollTimer = null; }
+    } catch(e) {}
 }
+
+async function startWebEnrichment() {
+    const statusEl = document.getElementById('web-enrich-status');
+    try {
+        const resp = await fetch('/api/ingestion/enrich-web', { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) { statusEl.textContent = data.error; return; }
+        statusEl.textContent = data.message;
+        _showRunning('web');
+        if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
+    } catch(e) { statusEl.textContent = 'Error: ' + e.message; }
+}
+
+async function stopWebEnrichment() {
+    try {
+        const resp = await fetch('/api/ingestion/stop-web-enrichment', { method: 'POST' });
+        const data = await resp.json();
+        document.getElementById('web-enrich-status').textContent = data.message || data.error;
+        _showIdle('web');
+        if (_webPollTimer) { clearInterval(_webPollTimer); _webPollTimer = null; }
+    } catch(e) {}
+}
+
+// Check on page load if any enrichment is running
+(async function() {
+    try {
+        const resp = await fetch('/api/ingestion/enrichment-status');
+        const data = await resp.json();
+        if (data.cif && data.cif.running) {
+            _showRunning('cif');
+            _updateProgress('cif', data.cif);
+            document.getElementById('cif-enrich-status').textContent = 'En ejecucion...';
+            if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
+        }
+        if (data.web && data.web.running) {
+            _showRunning('web');
+            _updateProgress('web', data.web);
+            document.getElementById('web-enrich-status').textContent = 'En ejecucion...';
+            if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
+        }
+    } catch(e) {}
+})();
 </script>
 {% endblock %}

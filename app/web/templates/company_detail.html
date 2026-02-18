@@ -276,11 +276,16 @@
 
     <!-- Acts History -->
     <div class="card p-6">
-        <h2 class="text-base font-bold text-gray-900 mb-4">Historial de actos mercantiles</h2>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-gray-900">Historial de actos mercantiles</h2>
+            {% if company.acts %}
+            <p class="text-xs text-gray-400">{{ company.acts|length }} actos</p>
+            {% endif %}
+        </div>
         {% if company.acts %}
-        <div class="space-y-2">
+        <div id="acts-list" class="space-y-2">
             {% for act in company.acts %}
-            <div class="border border-gray-100 rounded-xl p-3 hover:bg-[#FAFAF5] transition">
+            <div class="act-item border border-gray-100 rounded-xl p-3 hover:bg-[#FAFAF5] transition" {% if loop.index > 10 %}style="display:none"{% endif %}>
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ act.tipo_acto }}</span>
@@ -297,6 +302,19 @@
             </div>
             {% endfor %}
         </div>
+        {% if company.acts|length > 10 %}
+        <div id="acts-pagination" class="flex items-center justify-between mt-4">
+            <button type="button" onclick="actsPage(-1)" id="acts-prev"
+                    class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition opacity-30 pointer-events-none" disabled>
+                &larr; Anterior
+            </button>
+            <span id="acts-page-info" class="text-xs text-gray-400">Pag. 1/{{ ((company.acts|length - 1) // 10) + 1 }}</span>
+            <button type="button" onclick="actsPage(1)" id="acts-next"
+                    class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">
+                Siguiente &rarr;
+            </button>
+        </div>
+        {% endif %}
         {% else %}
         <p class="text-gray-400 text-sm">No hay actos registrados</p>
         {% endif %}
@@ -304,6 +322,27 @@
 </div>
 
 <script>
+/* Acts pagination */
+let _actsPage = 1;
+const _actsPerPage = 10;
+function actsPage(dir) {
+    const items = document.querySelectorAll('.act-item');
+    const totalPages = Math.ceil(items.length / _actsPerPage);
+    _actsPage = Math.max(1, Math.min(totalPages, _actsPage + dir));
+    const start = (_actsPage - 1) * _actsPerPage;
+    const end = start + _actsPerPage;
+    items.forEach((el, i) => { el.style.display = (i >= start && i < end) ? '' : 'none'; });
+    document.getElementById('acts-page-info').textContent = 'Pag. ' + _actsPage + '/' + totalPages;
+    const prev = document.getElementById('acts-prev');
+    const next = document.getElementById('acts-next');
+    prev.disabled = _actsPage <= 1;
+    prev.classList.toggle('opacity-30', _actsPage <= 1);
+    prev.classList.toggle('pointer-events-none', _actsPage <= 1);
+    next.disabled = _actsPage >= totalPages;
+    next.classList.toggle('opacity-30', _actsPage >= totalPages);
+    next.classList.toggle('pointer-events-none', _actsPage >= totalPages);
+}
+
 function editCif() {
     document.getElementById('cif-display').classList.add('hidden');
     document.getElementById('cif-edit').classList.remove('hidden');

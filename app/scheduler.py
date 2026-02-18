@@ -132,55 +132,83 @@ async def daily_archive_expired():
         logger.error(f"[Scheduler] Archive failed: {e}")
 
 
-_enrichment_running = False
-_enrichment_stop = False
-_enrichment_stats = {
-    "phase": "",
-    "cif_total": 0, "cif_attempted": 0, "cif_found": 0,
-    "web_total": 0, "web_attempted": 0, "web_found": 0,
+# --- CIF enrichment state ---
+_cif_running = False
+_cif_stop = False
+_cif_stats = {
+    "total": 0, "attempted": 0, "found": 0,
+    "errors": 0, "current_company": "",
+}
+
+# --- Web/contact enrichment state ---
+_web_running = False
+_web_stop = False
+_web_stats = {
+    "total": 0, "attempted": 0, "found": 0,
     "errors": 0, "current_company": "",
 }
 
 
+def get_cif_enrichment_stats() -> dict:
+    return {"running": _cif_running, **dict(_cif_stats)}
+
+
+def get_web_enrichment_stats() -> dict:
+    return {"running": _web_running, **dict(_web_stats)}
+
+
 def get_enrichment_stats() -> dict:
-    """Get current enrichment stats for live progress."""
-    return dict(_enrichment_stats)
+    """Combined stats for backward compatibility."""
+    return {
+        "running": _cif_running or _web_running,
+        "phase": "cif" if _cif_running else ("web" if _web_running else _cif_stats.get("_last_phase", "")),
+        "cif_total": _cif_stats["total"], "cif_attempted": _cif_stats["attempted"], "cif_found": _cif_stats["found"],
+        "web_total": _web_stats["total"], "web_attempted": _web_stats["attempted"], "web_found": _web_stats["found"],
+        "errors": _cif_stats["errors"] + _web_stats["errors"],
+        "current_company": _cif_stats["current_company"] if _cif_running else _web_stats["current_company"],
+    }
+
+
+def stop_cif_enrichment():
+    global _cif_stop
+    _cif_stop = True
+
+
+def stop_web_enrichment():
+    global _web_stop
+    _web_stop = True
 
 
 def stop_enrichment():
-    """Signal the enrichment process to stop."""
-    global _enrichment_stop
-    _enrichment_stop = True
+    """Stop whichever enrichment is running."""
+    stop_cif_enrichment()
+    stop_web_enrichment()
 
 
-async def full_enrichment():
-    """Run full enrichment for ALL companies: Phase 1 = CIF, Phase 2 = contacto (web/email/phone)."""
-    global _enrichment_running, _enrichment_stop
-    if _enrichment_running:
-        logger.info("[Enrichment] Already running, skipping")
+async def enrichment_cif():
+    """Batch CIF enrichment for all companies without CIF."""
+    global _cif_running, _cif_stop
+    if _cif_running:
+        logger.info("[CIF Batch] Already running, skipping")
         return
-    _enrichment_running = True
-    _enrichment_stop = False
+    _cif_running = True
+    _cif_stop = False
 
     from sqlalchemy import select, func as f
     from app.db.engine import async_session
     from app.db.models import Company
     from app.services.cif_enrichment import lookup_cif_by_name
-    from app.services.web_enrichment import enrich_company_web
-    import httpx
 
-    stats = _enrichment_stats
-    stats.update({"phase": "cif", "cif_total": 0, "cif_attempted": 0, "cif_found": 0,
-                  "web_total": 0, "web_attempted": 0, "web_found": 0, "errors": 0, "current_company": ""})
+    stats = _cif_stats
+    stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
 
     try:
-        # Phase 1: CIF enrichment
         async with async_session() as db:
             total = await db.scalar(select(f.count(Company.id)).where(Company.cif.is_(None))) or 0
-            stats["cif_total"] = total
-            logger.info(f"[Enrichment] Phase 1: {total} companies without CIF")
+            stats["total"] = total
+            logger.info(f"[CIF Batch] {total} companies without CIF")
             offset = 0
-            while not _enrichment_stop:
+            while not _cif_stop:
                 companies = (await db.scalars(
                     select(Company).where(Company.cif.is_(None))
                     .order_by(Company.fecha_ultima_publicacion.desc())
@@ -189,80 +217,112 @@ async def full_enrichment():
                 if not companies:
                     break
                 for c in companies:
-                    if _enrichment_stop:
+                    if _cif_stop:
                         break
-                    stats["cif_attempted"] += 1
+                    stats["attempted"] += 1
                     stats["current_company"] = c.nombre[:60]
                     try:
                         cif = await lookup_cif_by_name(c.nombre, use_google=False)
                         if cif:
                             c.cif = cif
-                            stats["cif_found"] += 1
+                            stats["found"] += 1
                         await asyncio.sleep(random.uniform(3, 8))
                     except Exception as e:
                         stats["errors"] += 1
-                        logger.warning(f"[Enrichment] CIF error {c.nombre}: {e}")
+                        logger.warning(f"[CIF Batch] Error {c.nombre}: {e}")
                         await asyncio.sleep(random.uniform(10, 30))
                 await db.commit()
                 offset += 100
-                logger.info(f"[Enrichment] CIF: {stats['cif_attempted']}/{total}, found: {stats['cif_found']}")
+                logger.info(f"[CIF Batch] {stats['attempted']}/{total}, found: {stats['found']}")
 
-        # Phase 2: Web enrichment
-        if not _enrichment_stop:
-            async with async_session() as db:
-                total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
-                stats["web_total"] = total
-                stats["phase"] = "web"
-                logger.info(f"[Enrichment] Phase 2 (contacto): {total} companies without web")
-                offset = 0
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    while not _enrichment_stop:
-                        companies = (await db.scalars(
-                            select(Company).where(Company.web.is_(None), Company.estado == "activa")
-                            .order_by(Company.fecha_ultima_publicacion.desc())
-                            .offset(offset).limit(100)
-                        )).all()
-                        if not companies:
-                            break
-                        for c in companies:
-                            if _enrichment_stop:
-                                break
-                            stats["web_attempted"] += 1
-                            stats["current_company"] = c.nombre[:60]
-                            try:
-                                r = await enrich_company_web(c, client)
-                                if r["web"]:
-                                    c.web = r["web"]
-                                    stats["web_found"] += 1
-                                if r["email"]:
-                                    c.email = r["email"]
-                                if r["telefono"]:
-                                    c.telefono = r["telefono"]
-                                await asyncio.sleep(random.uniform(4, 10))
-                            except Exception as e:
-                                stats["errors"] += 1
-                                logger.warning(f"[Enrichment] Web error {c.nombre}: {e}")
-                                await asyncio.sleep(random.uniform(10, 30))
-                        await db.commit()
-                        offset += 100
-                        logger.info(f"[Enrichment] Web: {stats['web_attempted']}/{total}, found: {stats['web_found']}")
-
-        if _enrichment_stop:
-            logger.info(f"[Enrichment] Stopped by user: {stats}")
-        else:
-            logger.info(f"[Enrichment] Completed: {stats}")
+        logger.info(f"[CIF Batch] {'Stopped' if _cif_stop else 'Completed'}: {stats}")
     except Exception as e:
-        logger.error(f"[Enrichment] Fatal error: {e}")
+        logger.error(f"[CIF Batch] Fatal error: {e}")
     finally:
-        stats["phase"] = "done" if not _enrichment_stop else "stopped"
         stats["current_company"] = ""
-        _enrichment_running = False
-        _enrichment_stop = False
+        stats["_last_phase"] = "done" if not _cif_stop else "stopped"
+        _cif_running = False
+        _cif_stop = False
+    return stats
+
+
+async def enrichment_web():
+    """Batch web/contact enrichment for all active companies without web."""
+    global _web_running, _web_stop
+    if _web_running:
+        logger.info("[Web Batch] Already running, skipping")
+        return
+    _web_running = True
+    _web_stop = False
+
+    from sqlalchemy import select, func as f
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.web_enrichment import enrich_company_web
+    import httpx
+
+    stats = _web_stats
+    stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
+
+    try:
+        async with async_session() as db:
+            total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
+            stats["total"] = total
+            logger.info(f"[Web Batch] {total} active companies without web")
+            offset = 0
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                while not _web_stop:
+                    companies = (await db.scalars(
+                        select(Company).where(Company.web.is_(None), Company.estado == "activa")
+                        .order_by(Company.fecha_ultima_publicacion.desc())
+                        .offset(offset).limit(100)
+                    )).all()
+                    if not companies:
+                        break
+                    for c in companies:
+                        if _web_stop:
+                            break
+                        stats["attempted"] += 1
+                        stats["current_company"] = c.nombre[:60]
+                        try:
+                            r = await enrich_company_web(c, client)
+                            if r["web"]:
+                                c.web = r["web"]
+                                stats["found"] += 1
+                            if r["email"]:
+                                c.email = r["email"]
+                            if r["telefono"]:
+                                c.telefono = r["telefono"]
+                            await asyncio.sleep(random.uniform(4, 10))
+                        except Exception as e:
+                            stats["errors"] += 1
+                            logger.warning(f"[Web Batch] Error {c.nombre}: {e}")
+                            await asyncio.sleep(random.uniform(10, 30))
+                    await db.commit()
+                    offset += 100
+                    logger.info(f"[Web Batch] {stats['attempted']}/{total}, found: {stats['found']}")
+
+        logger.info(f"[Web Batch] {'Stopped' if _web_stop else 'Completed'}: {stats}")
+    except Exception as e:
+        logger.error(f"[Web Batch] Fatal error: {e}")
+    finally:
+        stats["current_company"] = ""
+        stats["_last_phase"] = "done" if not _web_stop else "stopped"
+        _web_running = False
+        _web_stop = False
     return stats
 
 
 def is_enrichment_running() -> bool:
-    return _enrichment_running
+    return _cif_running or _web_running
+
+
+def is_cif_running() -> bool:
+    return _cif_running
+
+
+def is_web_running() -> bool:
+    return _web_running
 
 
 def start_scheduler(hour: int = 10, minute: int = 0):
