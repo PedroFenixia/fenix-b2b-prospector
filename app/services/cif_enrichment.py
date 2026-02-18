@@ -61,10 +61,9 @@ async def _search_empresia(nombre: str, client: httpx.AsyncClient) -> Optional[s
     slug = _name_to_slug(nombre)
     url = f"https://www.empresia.es/empresa/{slug}/"
     try:
-        resp = await client.get(url, headers={"User-Agent": _random_ua()})
+        resp = await client.get(url, headers={"User-Agent": _random_ua()}, timeout=6.0)
         if resp.status_code == 429:
-            logger.warning("empresia.es rate limit, backing off")
-            await asyncio.sleep(30)
+            logger.warning("empresia.es rate limit")
             return None
         if resp.status_code != 200:
             return None
@@ -85,10 +84,10 @@ async def _search_infocif(nombre: str, client: httpx.AsyncClient) -> Optional[st
             url,
             params={"Ession": search_name},
             headers={"User-Agent": _random_ua()},
+            timeout=6.0,
         )
         if resp.status_code == 429:
-            logger.warning("infocif.es rate limit, backing off")
-            await asyncio.sleep(30)
+            logger.warning("infocif.es rate limit")
             return None
         if resp.status_code != 200:
             return None
@@ -132,8 +131,7 @@ async def _search_duckduckgo(nombre: str, client: httpx.AsyncClient) -> Optional
             headers={"User-Agent": _random_ua()},
         )
         if resp.status_code == 429 or resp.status_code == 202:
-            logger.warning("DuckDuckGo rate limit, backing off")
-            await asyncio.sleep(60)
+            logger.warning("DuckDuckGo rate limit")
             return None
         if resp.status_code != 200:
             return None
@@ -167,10 +165,10 @@ async def lookup_cif_by_name(nombre: str, use_google: bool = True) -> Optional[s
     """Search multiple free web sources for a company's CIF.
 
     Individual mode (use_google=True): Google -> empresia -> infocif -> DuckDuckGo
-    Batch mode (use_google=False): empresia -> infocif -> DuckDuckGo (evita baneo Google)
+    Batch mode (use_google=False): empresia -> infocif (fast, 2 sources max)
     """
     proxy = _get_proxy()
-    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True, proxy=proxy) as client:
+    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, proxy=proxy) as client:
         if use_google:
             cif = await _search_google(nombre, client)
             if cif:
@@ -184,9 +182,11 @@ async def lookup_cif_by_name(nombre: str, use_google: bool = True) -> Optional[s
         if cif:
             return cif
 
-        cif = await _search_duckduckgo(nombre, client)
-        if cif:
-            return cif
+        # DuckDuckGo only in individual mode (too slow/rate-limited for batch)
+        if use_google:
+            cif = await _search_duckduckgo(nombre, client)
+            if cif:
+                return cif
 
     return None
 

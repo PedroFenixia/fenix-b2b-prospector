@@ -131,7 +131,12 @@ async def _search_duckduckgo(query: str, client: httpx.AsyncClient) -> list[str]
             "https://html.duckduckgo.com/html/",
             params={"q": query},
             headers={"User-Agent": UA},
+            timeout=10.0,
         )
+        if resp.status_code in (429, 202):
+            logger.warning(f"DuckDuckGo rate limited ({resp.status_code}), backing off")
+            await asyncio.sleep(15)
+            return []
         if resp.status_code != 200:
             return []
 
@@ -247,13 +252,13 @@ async def enrich_company_web(
     # Collect all text to analyze: homepage + contact/legal pages
     all_texts = [homepage_html]
 
-    # 5. Find and fetch contact/legal pages
+    # 5. Find and fetch contact/legal pages (max 2 to keep it fast)
     legal_links = _find_legal_links(homepage_html, corporate_url)
-    for link in legal_links[:3]:  # Max 3 pages
+    for link in legal_links[:2]:
         legal_html = await _fetch_page(link, client)
         if legal_html:
             all_texts.append(legal_html)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.3)
 
     # 6. Extract email and phone from all pages
     all_emails = []

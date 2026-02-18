@@ -18,8 +18,10 @@
                 {% endif %}
                 {% if w.company.estado == 'activa' %}
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-600 border border-green-100">Activa</span>
-                {% elif w.company.estado == 'disuelta' %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-100">Disuelta</span>
+                {% elif w.company.estado == 'en_liquidacion' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Liquidaci&oacute;n</span>
+                {% elif w.company.estado == 'disuelta' or w.company.estado == 'extinguida' %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-100">{{ w.company.estado|capitalize }}</span>
                 {% endif %}
             </div>
             {% if w.notas %}

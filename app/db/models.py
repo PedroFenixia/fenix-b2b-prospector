@@ -85,6 +85,8 @@ class Company(Base):
     num_empleados: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     facturacion: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     datos_registrales: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cif_intentos: Mapped[int] = mapped_column(Integer, default=0)
+    web_intentos: Mapped[int] = mapped_column(Integer, default=0)
     score_solvencia: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     score_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

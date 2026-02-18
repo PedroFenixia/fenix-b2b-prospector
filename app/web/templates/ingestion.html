@@ -358,7 +358,14 @@ async function startCifEnrichment() {
     try {
         const resp = await fetch('/api/ingestion/enrich-cif', { method: 'POST' });
         const data = await resp.json();
-        if (data.error) { statusEl.textContent = data.error; return; }
+        if (data.error) {
+            statusEl.textContent = data.error;
+            // If already running, still show progress bar and start polling
+            _showRunning('cif');
+            if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
+            _pollStatus();
+            return;
+        }
         statusEl.textContent = data.message;
         _showRunning('cif');
         if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
@@ -380,7 +387,14 @@ async function startWebEnrichment() {
     try {
         const resp = await fetch('/api/ingestion/enrich-web', { method: 'POST' });
         const data = await resp.json();
-        if (data.error) { statusEl.textContent = data.error; return; }
+        if (data.error) {
+            statusEl.textContent = data.error;
+            // If already running, still show progress bar and start polling
+            _showRunning('web');
+            if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
+            _pollStatus();
+            return;
+        }
         statusEl.textContent = data.message;
         _showRunning('web');
         if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);

@@ -186,7 +186,13 @@ def stop_enrichment():
 
 
 async def enrichment_cif():
-    """Batch CIF enrichment for all companies without CIF."""
+    """Batch CIF enrichment for all companies without CIF.
+
+    - Skips companies with cif_intentos >= 2 (already tried, not found).
+    - Increments cif_intentos on each attempt so failures are not retried endlessly.
+    - No offset pagination — always fetches next untried batch.
+    - Short waits between companies (1-2s) to maximize coverage.
+    """
     global _cif_running, _cif_stop
     if _cif_running:
         logger.info("[CIF Batch] Already running, skipping")
@@ -202,17 +208,27 @@ async def enrichment_cif():
     stats = _cif_stats
     stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
 
+    MAX_INTENTOS = 2
+
     try:
         async with async_session() as db:
-            total = await db.scalar(select(f.count(Company.id)).where(Company.cif.is_(None))) or 0
+            # Count companies that still have a chance (not yet exhausted retries)
+            base_filter = [Company.cif.is_(None), Company.cif_intentos < MAX_INTENTOS]
+            total = await db.scalar(select(f.count(Company.id)).where(*base_filter)) or 0
             stats["total"] = total
-            logger.info(f"[CIF Batch] {total} companies without CIF")
-            offset = 0
+            logger.info(f"[CIF Batch] {total} companies without CIF (intentos < {MAX_INTENTOS})")
+
+            if total == 0:
+                logger.info("[CIF Batch] Nothing to do")
+                return stats
+
             while not _cif_stop:
+                # Always get the next untried batch (no offset needed — processed
+                # companies get their intentos incremented so they drop out of the query)
                 companies = (await db.scalars(
-                    select(Company).where(Company.cif.is_(None))
+                    select(Company).where(*base_filter)
                     .order_by(Company.fecha_ultima_publicacion.desc())
-                    .offset(offset).limit(100)
+                    .limit(100)
                 )).all()
                 if not companies:
                     break
@@ -221,18 +237,19 @@ async def enrichment_cif():
                         break
                     stats["attempted"] += 1
                     stats["current_company"] = c.nombre[:60]
+                    c.cif_intentos = (c.cif_intentos or 0) + 1
                     try:
                         cif = await lookup_cif_by_name(c.nombre, use_google=False)
                         if cif:
                             c.cif = cif
                             stats["found"] += 1
-                        await asyncio.sleep(random.uniform(3, 8))
+                        # Short wait — maximize throughput
+                        await asyncio.sleep(random.uniform(1.0, 2.5))
                     except Exception as e:
                         stats["errors"] += 1
                         logger.warning(f"[CIF Batch] Error {c.nombre}: {e}")
-                        await asyncio.sleep(random.uniform(10, 30))
+                        await asyncio.sleep(random.uniform(2, 5))
                 await db.commit()
-                offset += 100
                 logger.info(f"[CIF Batch] {stats['attempted']}/{total}, found: {stats['found']}")
 
         logger.info(f"[CIF Batch] {'Stopped' if _cif_stop else 'Completed'}: {stats}")
@@ -247,7 +264,13 @@ async def enrichment_cif():
 
 
 async def enrichment_web():
-    """Batch web/contact enrichment for all active companies without web."""
+    """Batch web/contact enrichment for all active companies without web.
+
+    - Skips companies with web_intentos >= 2 (already tried, not found).
+    - Increments web_intentos on each attempt so failures are not retried endlessly.
+    - No offset pagination — always fetches next untried batch.
+    - Short waits between companies (2-4s) to maximize coverage.
+    """
     global _web_running, _web_stop
     if _web_running:
         logger.info("[Web Batch] Already running, skipping")
@@ -264,18 +287,28 @@ async def enrichment_web():
     stats = _web_stats
     stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
 
+    MAX_INTENTOS = 2
+
     try:
         async with async_session() as db:
-            total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
+            base_filter = [Company.web.is_(None), Company.estado == "activa", Company.web_intentos < MAX_INTENTOS]
+            total = await db.scalar(select(f.count(Company.id)).where(*base_filter)) or 0
             stats["total"] = total
-            logger.info(f"[Web Batch] {total} active companies without web")
-            offset = 0
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            logger.info(f"[Web Batch] {total} active companies without web (intentos < {MAX_INTENTOS})")
+
+            if total == 0:
+                logger.info("[Web Batch] Nothing to do")
+                return stats
+
+            consecutive_errors = 0
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                 while not _web_stop:
+                    # Always get next untried batch (processed companies get intentos
+                    # incremented so they drop out of the query)
                     companies = (await db.scalars(
-                        select(Company).where(Company.web.is_(None), Company.estado == "activa")
+                        select(Company).where(*base_filter)
                         .order_by(Company.fecha_ultima_publicacion.desc())
-                        .offset(offset).limit(100)
+                        .limit(50)
                     )).all()
                     if not companies:
                         break
@@ -284,22 +317,31 @@ async def enrichment_web():
                             break
                         stats["attempted"] += 1
                         stats["current_company"] = c.nombre[:60]
+                        c.web_intentos = (c.web_intentos or 0) + 1
                         try:
                             r = await enrich_company_web(c, client)
                             if r["web"]:
                                 c.web = r["web"]
                                 stats["found"] += 1
+                                consecutive_errors = 0
                             if r["email"]:
                                 c.email = r["email"]
                             if r["telefono"]:
                                 c.telefono = r["telefono"]
-                            await asyncio.sleep(random.uniform(4, 10))
+                            # Short wait — maximize throughput
+                            await asyncio.sleep(random.uniform(2.0, 4.0))
                         except Exception as e:
                             stats["errors"] += 1
+                            consecutive_errors += 1
                             logger.warning(f"[Web Batch] Error {c.nombre}: {e}")
-                            await asyncio.sleep(random.uniform(10, 30))
+                            # Back off more on consecutive errors (likely rate limit)
+                            if consecutive_errors >= 5:
+                                logger.warning("[Web Batch] 5 consecutive errors, backing off 30s")
+                                await asyncio.sleep(30)
+                                consecutive_errors = 0
+                            else:
+                                await asyncio.sleep(random.uniform(3, 6))
                     await db.commit()
-                    offset += 100
                     logger.info(f"[Web Batch] {stats['attempted']}/{total}, found: {stats['found']}")
 
         logger.info(f"[Web Batch] {'Stopped' if _web_stop else 'Completed'}: {stats}")
