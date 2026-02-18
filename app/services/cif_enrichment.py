@@ -5,10 +5,11 @@ import asyncio
 import logging
 import random
 import re
+import shlex
 from collections import Counter
 from typing import Optional
+from urllib.parse import urlencode
 
-import httpx
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from unidecode import unidecode
@@ -28,23 +29,11 @@ _USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
 ]
 
 
 def _random_ua() -> str:
     return random.choice(_USER_AGENTS)
-
-
-UA = _USER_AGENTS[0]  # Default for backwards compat
-
-
-def _name_to_slug(nombre: str) -> str:
-    """Convert company name to URL slug for empresia.es."""
-    slug = unidecode(nombre).lower().strip()
-    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-    slug = re.sub(r"\s+", "-", slug).strip("-")
-    return slug
 
 
 def _clean_name(nombre: str) -> str:
@@ -56,66 +45,39 @@ def _clean_name(nombre: str) -> str:
     return cleaned
 
 
-async def _search_empresia(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Search empresia.es by direct URL slug."""
-    slug = _name_to_slug(nombre)
-    url = f"https://www.empresia.es/empresa/{slug}/"
+async def _curl_fetch(url: str, timeout: int = 8) -> Optional[str]:
+    """Fetch URL using curl subprocess (bypasses TLS fingerprinting)."""
     try:
-        resp = await client.get(url, headers={"User-Agent": _random_ua()}, timeout=6.0)
-        if resp.status_code == 429:
-            logger.warning("empresia.es rate limit")
-            return None
-        if resp.status_code != 200:
-            return None
-        cifs = CIF_RE.findall(resp.text)
-        if cifs:
-            return cifs[0]
-    except Exception as e:
-        logger.debug(f"empresia.es error for '{nombre}': {e}")
-    return None
-
-
-async def _search_infocif(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Search infocif.es by company name."""
-    search_name = _clean_name(nombre)
-    url = "https://www.infocif.es/general/empresas-702702.asp"
-    try:
-        resp = await client.get(
+        cmd = [
+            "curl", "-s", "-L",
+            "--max-time", str(timeout),
+            "-H", f"User-Agent: {_random_ua()}",
+            "-H", "Accept-Language: es-ES,es;q=0.9",
             url,
-            params={"Ession": search_name},
-            headers={"User-Agent": _random_ua()},
-            timeout=6.0,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if resp.status_code == 429:
-            logger.warning("infocif.es rate limit")
-            return None
-        if resp.status_code != 200:
-            return None
-        cifs = CIF_RE.findall(resp.text)
-        if cifs:
-            return cifs[0]
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout + 5)
+        if proc.returncode == 0 and stdout:
+            return stdout.decode("utf-8", errors="replace")
     except Exception as e:
-        logger.debug(f"infocif.es error for '{nombre}': {e}")
+        logger.debug(f"curl error for {url}: {e}")
     return None
 
 
-async def _search_bing(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Search Bing HTML for CIF of a company."""
+async def _search_bing(nombre: str) -> Optional[str]:
+    """Search Bing for CIF of a company using curl."""
     search_name = _clean_name(nombre)
     query = f'"{search_name}" CIF empresa España'
+    url = f"https://www.bing.com/search?{urlencode({'q': query})}"
     try:
-        resp = await client.get(
-            "https://www.bing.com/search",
-            params={"q": query},
-            headers={"User-Agent": _random_ua(), "Accept-Language": "es-ES,es;q=0.9"},
-            timeout=8.0,
-        )
-        if resp.status_code == 429:
-            logger.warning("Bing rate limit")
+        html = await _curl_fetch(url)
+        if not html:
             return None
-        if resp.status_code != 200:
-            return None
-        cifs = CIF_RE.findall(resp.text)
+        cifs = CIF_RE.findall(html)
         if cifs:
             counter = Counter(cifs)
             return counter.most_common(1)[0][0]
@@ -124,49 +86,37 @@ async def _search_bing(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
     return None
 
 
-_proxy_list: list[str] = []
-_proxy_index = 0
-
-
-def _get_proxy() -> Optional[str]:
-    """Get next proxy URL from rotating list."""
-    global _proxy_list, _proxy_index
-    from app.config import settings
-    if not _proxy_list and settings.enrichment_proxies:
-        _proxy_list = [p.strip() for p in settings.enrichment_proxies.split(",") if p.strip()]
-    if not _proxy_list:
-        return None
-    proxy = _proxy_list[_proxy_index % len(_proxy_list)]
-    _proxy_index += 1
-    return proxy
+async def _search_empresia(nombre: str) -> Optional[str]:
+    """Search empresia.es by direct URL slug."""
+    slug = unidecode(nombre).lower().strip()
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
+    slug = re.sub(r"\s+", "-", slug).strip("-")
+    url = f"https://www.empresia.es/empresa/{slug}/"
+    try:
+        html = await _curl_fetch(url, timeout=6)
+        if not html:
+            return None
+        cifs = CIF_RE.findall(html)
+        if cifs:
+            return cifs[0]
+    except Exception as e:
+        logger.debug(f"empresia.es error for '{nombre}': {e}")
+    return None
 
 
 async def lookup_cif_by_name(nombre: str, use_bing: bool = True) -> Optional[str]:
-    """Search multiple free web sources for a company's CIF.
+    """Search free web sources for a company's CIF.
 
-    Individual mode (use_bing=True): Bing -> empresia -> infocif
-    Batch mode (use_bing=False): Bing -> empresia (fast, 2 sources max)
+    Uses curl subprocess to bypass TLS fingerprinting.
+    Order: Bing -> empresia.es
     """
-    proxy = _get_proxy()
-    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, proxy=proxy) as client:
-        if use_bing:
-            cif = await _search_bing(nombre, client)
-            if cif:
-                return cif
+    cif = await _search_bing(nombre)
+    if cif:
+        return cif
 
-        cif = await _search_empresia(nombre, client)
-        if cif:
-            return cif
-
-        cif = await _search_infocif(nombre, client)
-        if cif:
-            return cif
-
-        # In batch mode, also try Bing as last resort
-        if not use_bing:
-            cif = await _search_bing(nombre, client)
-            if cif:
-                return cif
+    cif = await _search_empresia(nombre)
+    if cif:
+        return cif
 
     return None
 

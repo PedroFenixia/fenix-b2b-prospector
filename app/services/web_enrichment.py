@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 from typing import Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlencode
 
 import httpx
 from bs4 import BeautifulSoup
@@ -124,23 +125,47 @@ def _extract_phones(text: str) -> list[str]:
     return phones
 
 
-async def _search_bing(query: str, client: httpx.AsyncClient) -> list[str]:
-    """Search Bing HTML and extract result URLs."""
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+]
+
+
+async def _curl_fetch(url: str, timeout: int = 10) -> Optional[str]:
+    """Fetch URL using curl subprocess (bypasses TLS fingerprinting)."""
     try:
-        resp = await client.get(
-            "https://www.bing.com/search",
-            params={"q": query},
-            headers={"User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9"},
-            timeout=10.0,
+        ua = random.choice(_USER_AGENTS)
+        cmd = [
+            "curl", "-s", "-L",
+            "--max-time", str(timeout),
+            "-H", f"User-Agent: {ua}",
+            "-H", "Accept-Language: es-ES,es;q=0.9",
+            url,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if resp.status_code == 429:
-            logger.warning("Bing rate limited, backing off")
-            await asyncio.sleep(15)
-            return []
-        if resp.status_code != 200:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout + 5)
+        if proc.returncode == 0 and stdout:
+            return stdout.decode("utf-8", errors="replace")
+    except Exception as e:
+        logger.debug(f"curl error for {url}: {e}")
+    return None
+
+
+async def _search_bing(query: str, client: httpx.AsyncClient = None) -> list[str]:
+    """Search Bing HTML and extract result URLs using curl."""
+    url = f"https://www.bing.com/search?{urlencode({'q': query})}"
+    try:
+        html = await _curl_fetch(url)
+        if not html:
             return []
 
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
         urls = []
         for li in soup.select("li.b_algo"):
             a = li.select_one("h2 a")
