@@ -81,6 +81,7 @@ def normalize_company(
         "objeto_social": parsed.objeto_social,
         "cnae_code": cnae_code,
         "capital_social": capital,
+        "datos_registrales": parsed.datos_registrales,
         "fecha_constitucion": fecha_constitucion,
         "fecha_primera_publicacion": fecha_publicacion,
         "fecha_ultima_publicacion": fecha_publicacion,

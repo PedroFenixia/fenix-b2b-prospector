@@ -114,6 +114,7 @@ class ParsedCompany:
     capital: float | None = None
     capital_moneda: str = "EUR"
     fecha_inicio: str | None = None
+    datos_registrales: str | None = None
 
 
 def parse_borme_pdf(pdf_path: Path) -> list[ParsedCompany]:
@@ -131,6 +132,24 @@ def parse_borme_pdf(pdf_path: Path) -> list[ParsedCompany]:
     return _parse_text(text)
 
 
+def _is_false_header(nombre: str) -> bool:
+    """Detect false positive company headers.
+
+    BORME PDFs contain numbered sub-entries within company blocks for
+    'Datos registrales' that look like company headers:
+        1.- (SEVILLA). T 100, F 50, S 8, ...
+        2.- (31.08.22).
+    Real company names never start with '(' — they start with letters.
+    """
+    # Registration sub-entries: locality or date in parentheses
+    if nombre.startswith("("):
+        return True
+    # Fragments of registration reference codes (no 2-letter word = not a name)
+    if not re.search(r"[A-ZÁÉÍÓÚÑa-záéíóúñ]{2}", nombre):
+        return True
+    return False
+
+
 def _parse_text(text: str) -> list[ParsedCompany]:
     """Parse extracted PDF text into structured company data."""
     companies: list[ParsedCompany] = []
@@ -143,20 +162,34 @@ def _parse_text(text: str) -> list[ParsedCompany]:
         logger.warning("No company headers found in text")
         return []
 
-    for i, match in enumerate(headers):
+    # Separate real company headers from false positives (registration sub-entries).
+    # False positives are numbered lines inside "Datos registrales" blocks that
+    # the header regex picks up (e.g. "1.- (BARCELONA). T 48370, F 220 ...").
+    real_headers = [m for m in headers if not _is_false_header(m.group(2).strip())]
+    skipped = len(headers) - len(real_headers)
+
+    if not real_headers:
+        logger.warning("All headers were false positives")
+        return []
+
+    for i, match in enumerate(real_headers):
         numero = int(match.group(1))
         nombre = match.group(2).strip()
 
-        # Get the text block for this company (until next header or end)
+        # Block extends to next *real* header (so registration sub-entries stay
+        # inside the correct company block and their data can be extracted).
         start = match.end()
-        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        end = real_headers[i + 1].start() if i + 1 < len(real_headers) else len(text)
         block = text[start:end].strip()
 
         company = ParsedCompany(numero=numero, nombre=nombre)
         _parse_company_block(company, block)
         companies.append(company)
 
-    logger.info(f"Parsed {len(companies)} companies from text")
+    logger.info(
+        f"Parsed {len(companies)} companies from text"
+        + (f" ({skipped} false headers skipped)" if skipped else "")
+    )
     return companies
 
 
@@ -220,6 +253,30 @@ def _parse_company_block(company: ParsedCompany, block: str):
     if fecha_match:
         company.fecha_inicio = fecha_match.group(1)
 
+    # Datos registrales: T <tomo>, F <folio>, S <sección>, H <hoja>, I/A <inscripción>
+    company.datos_registrales = _extract_datos_registrales(block)
+
+
+def _extract_datos_registrales(text: str) -> str | None:
+    """Extract 'Datos registrales' references from company block.
+
+    Captures T (tomo), F (folio), S (sección), H (hoja), I/A (inscripción).
+    Multiple sub-entries (multi-province) are joined with '; '.
+    """
+    idx = text.lower().find("datos registrales")
+    if idx == -1:
+        return None
+    after = text[idx + len("datos registrales"):].strip().lstrip(".-").strip()
+    # Find all T <num>, F <num>, S <num>, H <code> <num> patterns
+    matches = re.findall(
+        r"T\s+\d+\s*,\s*F\s+\d+\s*,\s*S\s+\d+\s*,\s*H\s+[A-Z]*\s*\d+[^.(]*(?:\([^)]*\))?",
+        after,
+        re.IGNORECASE,
+    )
+    if matches:
+        return "; ".join(m.strip() for m in matches)
+    return None
+
 
 def _extract_officers(text: str) -> list[ParsedOfficer]:
     """Extract officer names and roles from appointment/resignation text."""
@@ -247,6 +304,7 @@ def parsed_to_json(companies: list[ParsedCompany]) -> str:
             "capital": c.capital,
             "capital_moneda": c.capital_moneda,
             "fecha_inicio": c.fecha_inicio,
+            "datos_registrales": c.datos_registrales,
             "actos": [
                 {
                     "tipo": a.tipo,

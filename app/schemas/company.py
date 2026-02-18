@@ -20,6 +20,7 @@ class CompanyBase(BaseModel):
     telefono: str | None = None
     web: str | None = None
     estado: str = "activa"
+    datos_registrales: str | None = None
     score_solvencia: int | None = None
 
 
@@ -43,6 +44,7 @@ class ActOut(BaseModel):
     fecha_publicacion: date
     borme_id: str | None = None
     datos_acto: str | None = None
+    source_pdf_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -160,6 +160,12 @@
                     <dd class="text-sm text-gray-900 mt-1">{{ company.fecha_constitucion }}</dd>
                 </div>
                 {% endif %}
+                {% if company.datos_registrales %}
+                <div>
+                    <dt class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Datos registrales</dt>
+                    <dd class="text-sm text-gray-900 mt-1 font-mono text-xs">{{ company.datos_registrales }}</dd>
+                </div>
+                {% endif %}
                 <div class="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
                     <div>
                         <dt class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Primera publicacion</dt>
@@ -279,7 +285,11 @@
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ act.tipo_acto }}</span>
                         {% if act.borme_id %}
+                        {% if act.source_pdf_url %}
+                        <a href="{{ act.source_pdf_url }}" target="_blank" rel="noopener" class="text-[11px] text-brand-500 hover:text-brand-600 font-mono underline" title="Ver BORME PDF">{{ act.borme_id }}</a>
+                        {% else %}
                         <span class="text-[11px] text-gray-400 font-mono">{{ act.borme_id }}</span>
+                        {% endif %}
                         {% endif %}
                     </div>
                     <span class="text-xs text-gray-400 font-mono">{{ act.fecha_publicacion }}</span>

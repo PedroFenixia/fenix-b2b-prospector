@@ -291,6 +291,8 @@ async def _store_company(
             existing.fecha_constitucion = normalized["fecha_constitucion"]
         if normalized["localidad"] and not existing.localidad:
             existing.localidad = normalized["localidad"]
+        if normalized["datos_registrales"] and not existing.datos_registrales:
+            existing.datos_registrales = normalized["datos_registrales"]
         existing.fecha_ultima_publicacion = fecha
         existing.estado = normalized["estado"]
         company = existing
