@@ -68,13 +68,13 @@ async def _curl_fetch(url: str, timeout: int = 8) -> Optional[str]:
     return None
 
 
-async def _search_bing(nombre: str) -> Optional[str]:
-    """Search Bing for CIF of a company using curl."""
+async def _search_brave(nombre: str) -> Optional[str]:
+    """Search Brave Search for CIF of a company using curl."""
     search_name = _clean_name(nombre)
     query = f'"{search_name}" CIF empresa España'
-    url = f"https://www.bing.com/search?{urlencode({'q': query})}"
+    url = f"https://search.brave.com/search?{urlencode({'q': query})}"
     try:
-        html = await _curl_fetch(url)
+        html = await _curl_fetch(url, timeout=10)
         if not html:
             return None
         cifs = CIF_RE.findall(html)
@@ -82,39 +82,16 @@ async def _search_bing(nombre: str) -> Optional[str]:
             counter = Counter(cifs)
             return counter.most_common(1)[0][0]
     except Exception as e:
-        logger.debug(f"Bing error for '{nombre}': {e}")
+        logger.debug(f"Brave error for '{nombre}': {e}")
     return None
 
 
-async def _search_empresia(nombre: str) -> Optional[str]:
-    """Search empresia.es by direct URL slug."""
-    slug = unidecode(nombre).lower().strip()
-    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-    slug = re.sub(r"\s+", "-", slug).strip("-")
-    url = f"https://www.empresia.es/empresa/{slug}/"
-    try:
-        html = await _curl_fetch(url, timeout=6)
-        if not html:
-            return None
-        cifs = CIF_RE.findall(html)
-        if cifs:
-            return cifs[0]
-    except Exception as e:
-        logger.debug(f"empresia.es error for '{nombre}': {e}")
-    return None
-
-
-async def lookup_cif_by_name(nombre: str, use_bing: bool = True) -> Optional[str]:
+async def lookup_cif_by_name(nombre: str, **kwargs) -> Optional[str]:
     """Search free web sources for a company's CIF.
 
-    Uses curl subprocess to bypass TLS fingerprinting.
-    Order: Bing -> empresia.es
+    Uses Brave Search via curl subprocess.
     """
-    cif = await _search_bing(nombre)
-    if cif:
-        return cif
-
-    cif = await _search_empresia(nombre)
+    cif = await _search_brave(nombre)
     if cif:
         return cif
 

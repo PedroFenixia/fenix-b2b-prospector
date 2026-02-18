@@ -157,9 +157,9 @@ async def _curl_fetch(url: str, timeout: int = 10) -> Optional[str]:
     return None
 
 
-async def _search_bing(query: str, client: httpx.AsyncClient = None) -> list[str]:
-    """Search Bing HTML and extract result URLs using curl."""
-    url = f"https://www.bing.com/search?{urlencode({'q': query})}"
+async def _search_brave(query: str, client: httpx.AsyncClient = None) -> list[str]:
+    """Search Brave Search and extract result URLs using curl."""
+    url = f"https://search.brave.com/search?{urlencode({'q': query})}"
     try:
         html = await _curl_fetch(url)
         if not html:
@@ -167,13 +167,15 @@ async def _search_bing(query: str, client: httpx.AsyncClient = None) -> list[str
 
         soup = BeautifulSoup(html, "html.parser")
         urls = []
-        for li in soup.select("li.b_algo"):
-            a = li.select_one("h2 a")
-            if a and a.get("href", "").startswith("http"):
-                urls.append(a["href"])
+        # Extract all external links from search results
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.startswith("http") and "brave.com" not in href and "search" not in href[:30]:
+                if href not in urls:
+                    urls.append(href)
         return urls[:10]
     except Exception as e:
-        logger.warning(f"Bing search error: {e}")
+        logger.warning(f"Brave search error: {e}")
         return []
 
 
@@ -235,8 +237,8 @@ async def enrich_company_web(
     result = {"email": None, "telefono": None, "web": None}
     nombre = company.nombre
 
-    # 1. Search Bing
-    search_urls = await _search_bing(f"{nombre} empresa España", client)
+    # 1. Search Brave
+    search_urls = await _search_brave(f"{nombre} empresa España", client)
     if not search_urls:
         return result
 
