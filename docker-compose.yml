@@ -1,25 +1,77 @@
 services:
+  # --- FastAPI application ---
   app:
     build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./app:/app/app
-      - ./scripts:/app/scripts
-      - ./data:/app/data
+    container_name: fenix-app
     env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fenix:${POSTGRES_PASSWORD}@postgres:5432/fenix_prospector
+      - TYPESENSE_URL=http://typesense:8108
+    volumes:
+      - app-data:/app/data
     depends_on:
-      - typesense
+      postgres:
+        condition: service_healthy
+      typesense:
+        condition: service_started
     restart: unless-stopped
+    networks:
+      - fenix-net
 
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: fenix-postgres
+    environment:
+      POSTGRES_USER: fenix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: fenix_prospector
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fenix -d fenix_prospector"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - fenix-net
+
+  # --- Typesense search engine ---
   typesense:
     image: typesense/typesense:27.1
-    ports:
-      - "8108:8108"
+    container_name: fenix-typesense
     volumes:
-      - typesense-data:/data
-    command: --data-dir /data --api-key=fenix-ts-local-key --enable-cors
+      - ts-data:/data
+    command: --data-dir /data --api-key=${TYPESENSE_API_KEY:-fenix-ts-key} --enable-cors
     restart: unless-stopped
+    networks:
+      - fenix-net
+
+  # --- Caddy reverse proxy (auto-SSL) ---
+  caddy:
+    image: caddy:2-alpine
+    container_name: fenix-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - fenix-net
 
 volumes:
-  typesense-data:
+  pg-data:
+  ts-data:
+  app-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  fenix-net:
+    driver: bridge

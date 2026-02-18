@@ -19,6 +19,10 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Auto-add missing columns (create_all only creates new tables)
+    from app.db.migrate import auto_migrate
+    await auto_migrate(engine)
+
     # Setup PostgreSQL full-text search
     if settings.database_url.startswith("postgresql"):
         from sqlalchemy import text

@@ -489,7 +489,7 @@ async def subsidies_results(
         fecha_desde=fecha_desde or None, fecha_hasta=fecha_hasta or None,
         page=page, per_page=per_page,
     )
-    result = await search_subsidies(filters, db)
+    result = await search_subsidies(filters, db, include_archived=filters.include_archived)
     return templates.TemplateResponse("partials/subsidies_table.html", {
         "request": request,
         "subsidies": result["items"],
@@ -517,7 +517,7 @@ async def tenders_results(
         fecha_desde=fecha_desde or None, fecha_hasta=fecha_hasta or None,
         page=page, per_page=per_page,
     )
-    result = await search_tenders(filters, db)
+    result = await search_tenders(filters, db, include_archived=filters.include_archived)
     return templates.TemplateResponse("partials/tenders_table.html", {
         "request": request,
         "tenders": result["items"],

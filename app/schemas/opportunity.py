@@ -20,6 +20,7 @@ class SubsidyOut(BaseModel):
     beneficiarios: str | None = None
     sector: str | None = None
     ambito: str | None = None
+    archivada: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -39,6 +40,7 @@ class TenderOut(BaseModel):
     importe_estimado: float | None = None
     lugar_ejecucion: str | None = None
     cpv_code: str | None = None
+    archivada: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -53,6 +55,7 @@ class OpportunityFilters(BaseModel):
     fecha_hasta: date | None = None
     importe_min: float | None = None
     importe_max: float | None = None
+    include_archived: bool = False
     sort_by: str = "fecha_publicacion"
     sort_order: str = "desc"
     page: int = Field(default=1, ge=1)

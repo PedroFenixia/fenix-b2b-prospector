@@ -131,9 +131,9 @@
                     <dd class="flex items-center gap-2 mt-1" id="cif-display">
                         <span class="text-sm text-gray-900 font-medium font-mono" id="cif-value">{{ company.cif or 'No disponible' }}</span>
                         <button onclick="editCif()" class="text-[11px] text-brand-500 hover:text-brand-600 font-semibold">Editar</button>
-                        {% if not company.cif %}
-                        <button onclick="lookupCif({{ company.id }})" id="btn-lookup-cif" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">Buscar CIF</button>
-                        {% endif %}
+                        <button onclick="lookupCif({{ company.id }})" id="btn-lookup-cif" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">
+                            {% if company.cif %}Buscar de nuevo{% else %}Buscar CIF{% endif %}
+                        </button>
                     </dd>
                     <dd class="hidden items-center gap-2 mt-1" id="cif-edit">
                         <input type="text" id="cif-input" value="{{ company.cif or '' }}" placeholder="B12345678"
@@ -183,7 +183,7 @@
         <div class="card p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-bold text-gray-900">Contacto</h2>
-                <button onclick="enrichWeb({{ company.id }})" id="btn-enrich-web" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">Buscar en web</button>
+                <button onclick="enrichWeb({{ company.id }})" id="btn-enrich-web" class="text-[11px] text-gray-400 hover:text-brand-500 font-semibold">Buscar contacto</button>
             </div>
             <dl class="space-y-3">
                 <div>
@@ -335,17 +335,23 @@ async function saveCif(companyId) {
 
 async function lookupCif(companyId) {
     var btn = document.getElementById('btn-lookup-cif');
-    btn.textContent = 'Buscando...';
+    btn.textContent = 'Buscando CIF...';
     btn.disabled = true;
     try {
         var resp = await fetch('/api/companies/' + companyId + '/lookup-cif', { method: 'POST' });
         var data = await resp.json();
+        if (resp.status === 401 || resp.status === 403) {
+            btn.textContent = data.error || 'Plan requerido';
+            btn.classList.add('text-red-400');
+            return;
+        }
         if (data.cif) {
             document.getElementById('cif-value').textContent = data.cif;
-            btn.textContent = 'Encontrado';
+            btn.textContent = 'CIF encontrado';
             btn.classList.add('text-green-500');
         } else {
             btn.textContent = data.error || 'No encontrado';
+            btn.classList.add('text-red-400');
         }
     } catch(e) {
         btn.textContent = 'Error';
@@ -354,11 +360,16 @@ async function lookupCif(companyId) {
 
 async function enrichWeb(companyId) {
     var btn = document.getElementById('btn-enrich-web');
-    btn.textContent = 'Buscando...';
+    btn.textContent = 'Buscando contacto...';
     btn.disabled = true;
     try {
         var resp = await fetch('/api/companies/' + companyId + '/enrich-web', { method: 'POST' });
         var data = await resp.json();
+        if (resp.status === 401 || resp.status === 403) {
+            btn.textContent = data.error || 'Plan requerido';
+            btn.classList.add('text-red-400');
+            return;
+        }
         if (data.web) {
             document.getElementById('web-value').innerHTML = '<a href="' + data.web + '" target="_blank" class="text-brand-500 hover:text-brand-600 underline">' + data.web.substring(0,50) + '</a>';
         }
@@ -368,11 +379,9 @@ async function enrichWeb(companyId) {
         if (data.telefono) {
             document.getElementById('phone-value').innerHTML = '<a href="tel:' + data.telefono + '" class="text-brand-500 hover:text-brand-600">' + data.telefono + '</a>';
         }
-        if (data.cif) {
-            document.getElementById('cif-value').textContent = data.cif;
-        }
-        btn.textContent = data.web ? 'Encontrado' : 'No encontrado';
-        btn.classList.add(data.web ? 'text-green-500' : 'text-red-400');
+        var found = data.web || data.email || data.telefono;
+        btn.textContent = found ? 'Contacto encontrado' : 'No encontrado';
+        btn.classList.add(found ? 'text-green-500' : 'text-red-400');
     } catch(e) {
         btn.textContent = 'Error';
     }

@@ -10,6 +10,7 @@
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Organismo</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Importe</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Fecha</th>
+                <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Plazo</th>
                 <th class="text-left py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enlace</th>
             </tr>
         </thead>
@@ -27,6 +28,17 @@
                     {% if s.importe %}{{ s.importe|eu }}&euro;{% else %}-{% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ s.fecha_publicacion }}</td>
+                <td class="py-3 px-4 text-xs font-mono">
+                    {% if s.fecha_limite %}
+                        {% if s.archivada %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">Vencida</span>
+                        {% else %}
+                        <span class="text-green-600">{{ s.fecha_limite }}</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="text-gray-300">-</span>
+                    {% endif %}
+                </td>
                 <td class="py-3 px-4">
                     {% if s.url_html %}
                     <a href="{{ s.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-sm font-medium">BOE</a>
@@ -41,23 +53,30 @@
 </div>
 
 {% if pages > 1 %}
-<div class="flex justify-center gap-2 mt-4">
-    {% if page > 1 %}
-    <button onclick="document.getElementById('sub-page-input').value={{ page - 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
-            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Anterior</button>
-    {% endif %}
-    {% for p in range(1, pages + 1) %}
-    {% if p == page %}
-    <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
-    {% else %}
-    <button onclick="document.getElementById('sub-page-input').value={{ p }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
-            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</button>
-    {% endif %}
-    {% endfor %}
-    {% if page < pages %}
-    <button onclick="document.getElementById('sub-page-input').value={{ page + 1 }}; htmx.trigger(document.querySelector('[hx-target=\'#subsidies-results\']'), 'click')"
-            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">Siguiente</button>
-    {% endif %}
+<div class="flex items-center justify-between mt-4">
+    <button onclick="goToSubPage({{ page - 1 }})"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition {% if page <= 1 %}opacity-30 pointer-events-none{% endif %}"
+            {% if page <= 1 %}disabled{% endif %}>
+        &larr; Anterior
+    </button>
+    <div class="flex gap-1">
+        {% for p in range(1, pages + 1) %}
+            {% if p == page %}
+            <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
+            {% elif p <= 2 or p >= pages - 1 or (p >= page - 1 and p <= page + 1) %}
+            <button onclick="goToSubPage({{ p }})" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</button>
+            {% elif p == 3 and page > 4 %}
+            <span class="px-2 py-1.5 text-gray-300 text-sm">...</span>
+            {% elif p == pages - 2 and page < pages - 3 %}
+            <span class="px-2 py-1.5 text-gray-300 text-sm">...</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    <button onclick="goToSubPage({{ page + 1 }})"
+            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition {% if page >= pages %}opacity-30 pointer-events-none{% endif %}"
+            {% if page >= pages %}disabled{% endif %}>
+        Siguiente &rarr;
+    </button>
 </div>
 {% endif %}
 

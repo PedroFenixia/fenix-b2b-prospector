@@ -27,6 +27,7 @@ async def list_subsidies(
     fecha_hasta: date | None = None,
     importe_min: float | None = None,
     importe_max: float | None = None,
+    include_archived: bool = False,
     sort_by: str = "fecha_publicacion",
     sort_order: str = "desc",
     page: int = 1,
@@ -37,10 +38,11 @@ async def list_subsidies(
         q=q, organismo=organismo, sector=sector,
         fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
         importe_min=importe_min, importe_max=importe_max,
+        include_archived=include_archived,
         sort_by=sort_by, sort_order=sort_order,
         page=page, per_page=per_page,
     )
-    result = await search_subsidies(filters, db)
+    result = await search_subsidies(filters, db, include_archived=include_archived)
     return PaginatedSubsidies(
         items=[SubsidyOut.model_validate(s) for s in result["items"]],
         total=result["total"],
@@ -59,6 +61,7 @@ async def list_tenders(
     fecha_hasta: date | None = None,
     importe_min: float | None = None,
     importe_max: float | None = None,
+    include_archived: bool = False,
     sort_by: str = "fecha_publicacion",
     sort_order: str = "desc",
     page: int = 1,
@@ -69,10 +72,11 @@ async def list_tenders(
         q=q, organismo=organismo, tipo_contrato=tipo_contrato,
         fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
         importe_min=importe_min, importe_max=importe_max,
+        include_archived=include_archived,
         sort_by=sort_by, sort_order=sort_order,
         page=page, per_page=per_page,
     )
-    result = await search_tenders(filters, db)
+    result = await search_tenders(filters, db, include_archived=include_archived)
     return PaginatedTenders(
         items=[TenderOut.model_validate(t) for t in result["items"]],
         total=result["total"],

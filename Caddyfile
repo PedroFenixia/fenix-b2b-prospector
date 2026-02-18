@@ -1,0 +1,23 @@
+{$DOMAIN:b2b.fenixia.tech} {
+    reverse_proxy app:8000
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode gzip
+
+    handle_path /static/* {
+        root * /app/web/static
+        file_server
+        header Cache-Control "public, max-age=604800"
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

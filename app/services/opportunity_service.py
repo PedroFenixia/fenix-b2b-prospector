@@ -1,18 +1,25 @@
 from __future__ import annotations
 
-"""Service for searching subsidies and tenders."""
+"""Service for searching subsidies, tenders and judicial notices."""
+import logging
 import math
+from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JudicialNotice, Subsidy, Tender
 from app.schemas.opportunity import OpportunityFilters
 
+logger = logging.getLogger(__name__)
 
-async def search_subsidies(filters: OpportunityFilters, db: AsyncSession) -> dict:
-    """Search subsidies with filters."""
+
+async def search_subsidies(filters: OpportunityFilters, db: AsyncSession, include_archived: bool = False) -> dict:
+    """Search subsidies with filters. Excludes archived by default."""
     query = select(Subsidy)
+
+    if not include_archived:
+        query = query.where(Subsidy.archivada == False)
 
     if filters.q:
         pattern = f"%{filters.q}%"
@@ -71,9 +78,12 @@ async def search_subsidies(filters: OpportunityFilters, db: AsyncSession) -> dic
     }
 
 
-async def search_tenders(filters: OpportunityFilters, db: AsyncSession) -> dict:
-    """Search tenders with filters."""
+async def search_tenders(filters: OpportunityFilters, db: AsyncSession, include_archived: bool = False) -> dict:
+    """Search tenders with filters. Excludes archived by default."""
     query = select(Tender)
+
+    if not include_archived:
+        query = query.where(Tender.archivada == False)
 
     if filters.q:
         pattern = f"%{filters.q}%"
@@ -283,3 +293,29 @@ async def upsert_judicial(notices: list[dict], db: AsyncSession) -> int:
         count += 1
     await db.commit()
     return count
+
+
+async def archive_expired(db: AsyncSession) -> dict:
+    """Archive subsidies and tenders whose fecha_limite has passed."""
+    today = date.today()
+
+    sub_result = await db.execute(
+        update(Subsidy)
+        .where(Subsidy.fecha_limite < today, Subsidy.archivada == False)
+        .values(archivada=True)
+    )
+    sub_count = sub_result.rowcount
+
+    tender_result = await db.execute(
+        update(Tender)
+        .where(Tender.fecha_limite < today, Tender.archivada == False)
+        .values(archivada=True)
+    )
+    tender_count = tender_result.rowcount
+
+    await db.commit()
+
+    if sub_count or tender_count:
+        logger.info(f"[Archive] Archived {sub_count} subsidies, {tender_count} tenders (deadline passed)")
+
+    return {"subsidies_archived": sub_count, "tenders_archived": tender_count}

@@ -92,12 +92,13 @@
                 </button>
                 <input type="hidden" name="page" value="1" id="sub-page-input">
             </form>
-            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-subsidies"
-                    hx-swap="none"
-                    hx-on::after-request="htmx.trigger(document.querySelector('#subsidies-results'), 'load')">
-                Actualizar BOE
-            </button>
+            <div class="flex items-center gap-3">
+                <button type="button" id="btn-fetch-subsidies" onclick="fetchData('subsidies', '/api/opportunities/fetch-subsidies', 'BOE')"
+                        class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm flex items-center gap-2">
+                    <span>Actualizar BOE</span>
+                </button>
+                <span id="status-subsidies" class="text-[11px] text-gray-400 hidden"></span>
+            </div>
         </div>
         <div id="subsidies-results">
             <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar subvenciones</div>
@@ -140,12 +141,13 @@
                 </button>
                 <input type="hidden" name="page" value="1" id="tender-page-input">
             </form>
-            <button class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-tenders"
-                    hx-swap="none"
-                    hx-on::after-request="htmx.trigger(document.querySelector('#tenders-results'), 'load')">
-                Actualizar PLACSP
-            </button>
+            <div class="flex items-center gap-3">
+                <button type="button" id="btn-fetch-tenders" onclick="fetchData('tenders', '/api/opportunities/fetch-tenders', 'PLACSP')"
+                        class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-semibold transition shadow-sm flex items-center gap-2">
+                    <span>Actualizar PLACSP</span>
+                </button>
+                <span id="status-tenders" class="text-[11px] text-gray-400 hidden"></span>
+            </div>
         </div>
         <div id="tenders-results">
             <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar licitaciones</div>
@@ -188,12 +190,13 @@
                 </button>
                 <input type="hidden" name="page" value="1" id="judicial-page-input">
             </form>
-            <button class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition shadow-sm"
-                    hx-post="/api/opportunities/fetch-judicial"
-                    hx-swap="none"
-                    hx-on::after-request="htmx.trigger(document.querySelector('#judicial-results'), 'load')">
-                Actualizar BOE Judicial
-            </button>
+            <div class="flex items-center gap-3">
+                <button type="button" id="btn-fetch-judicial" onclick="fetchData('judicial', '/api/opportunities/fetch-judicial', 'BOE Judicial')"
+                        class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition shadow-sm flex items-center gap-2">
+                    <span>Actualizar BOE Judicial</span>
+                </button>
+                <span id="status-judicial" class="text-[11px] text-gray-400 hidden"></span>
+            </div>
         </div>
         <div id="judicial-results">
             <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar anuncios judiciales</div>
@@ -217,9 +220,78 @@ function switchTab(tab) {
     active.classList.remove('border-transparent', 'text-gray-400');
 }
 
+/* --- Pagination helpers --- */
+function goToSubPage(page) {
+    document.getElementById('sub-page-input').value = page;
+    htmx.trigger(document.querySelector('[hx-target="#subsidies-results"]'), 'click');
+}
+function goToTenderPage(page) {
+    document.getElementById('tender-page-input').value = page;
+    htmx.trigger(document.querySelector('[hx-target="#tenders-results"]'), 'click');
+}
 function goToJudicialPage(page) {
     document.getElementById('judicial-page-input').value = page;
     htmx.trigger(document.querySelector('[hx-get="/opportunities/judicial-results"]'), 'click');
+}
+
+/* --- Fetch / Update buttons --- */
+async function fetchData(type, url, label) {
+    const btn = document.getElementById('btn-fetch-' + type);
+    const status = document.getElementById('status-' + type);
+    const origHTML = btn.innerHTML;
+
+    // Disable and show progress
+    btn.disabled = true;
+    btn.classList.add('opacity-70', 'pointer-events-none');
+    btn.innerHTML = '<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Actualizando...</span>';
+
+    try {
+        const resp = await fetch(url, { method: 'POST' });
+        const data = await resp.json();
+
+        // Show success state
+        btn.innerHTML = '<svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span>Actualizado</span>';
+        btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-amber-600', 'hover:bg-amber-700');
+        btn.classList.add('bg-gray-500');
+
+        // Show timestamp and count
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+        const newCount = data.new !== undefined ? data.new : 0;
+        status.textContent = dateStr + ' ' + timeStr + ' — ' + newCount + ' nuevos';
+        status.classList.remove('hidden');
+
+        // Reload results
+        if (type === 'subsidies') {
+            htmx.trigger(document.querySelector('[hx-target="#subsidies-results"]'), 'click');
+        } else if (type === 'tenders') {
+            htmx.trigger(document.querySelector('[hx-target="#tenders-results"]'), 'click');
+        } else if (type === 'judicial') {
+            htmx.trigger(document.querySelector('[hx-get="/opportunities/judicial-results"]'), 'click');
+        }
+
+        // Reset button after 5s
+        setTimeout(() => {
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+            btn.classList.remove('opacity-70', 'pointer-events-none', 'bg-gray-500');
+            if (type === 'judicial') {
+                btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+            } else {
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+        }, 5000);
+    } catch (err) {
+        btn.innerHTML = '<span>Error</span>';
+        status.textContent = 'Error al actualizar';
+        status.classList.remove('hidden');
+        setTimeout(() => {
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+            btn.classList.remove('opacity-70', 'pointer-events-none');
+        }, 3000);
+    }
 }
 </script>
 {% endblock %}

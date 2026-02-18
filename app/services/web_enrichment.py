@@ -1,11 +1,13 @@
-"""Enriquecimiento web: busca CIF, email y teléfono en la web de la empresa.
+"""Enriquecimiento de contacto: busca web, email y teléfono en la web de la empresa.
 
 Flujo:
 1. Buscar el nombre de la empresa en DuckDuckGo
 2. Identificar la web corporativa (descartando directorios, redes sociales)
-3. Buscar páginas legales (aviso legal, política de privacidad)
-4. Extraer CIF, email y teléfono
+3. Buscar páginas legales (aviso legal, política de privacidad, contacto)
+4. Extraer email y teléfono
 5. Verificar que el nombre coincide (sin forma jurídica, case-insensitive)
+
+Nota: La búsqueda de CIF se hace por separado en cif_enrichment.py.
 """
 from __future__ import annotations
 
@@ -26,9 +28,6 @@ from app.db.models import Company
 logger = logging.getLogger(__name__)
 
 # --- Regex patterns ---
-
-# CIF español: letra + 7 dígitos + letra/dígito
-CIF_RE = re.compile(r"\b([ABCDEFGHJKLMNPQRSUVW]\d{7}[0-9A-J])\b")
 
 # Email
 EMAIL_RE = re.compile(
@@ -105,10 +104,6 @@ def _clean_phone(match: re.Match) -> str:
     if len(digits) == 9 and digits[0] in "6789":
         return digits
     return ""
-
-
-def _extract_cifs(text: str) -> list[str]:
-    return CIF_RE.findall(text)
 
 
 def _extract_emails(text: str) -> list[str]:
@@ -209,11 +204,12 @@ async def enrich_company_web(
     company: Company,
     client: httpx.AsyncClient,
 ) -> dict:
-    """Enrich a single company with web data.
+    """Enrich a single company with contact data (web, email, phone).
 
-    Returns dict with keys: cif, email, telefono, web (or None for each).
+    CIF lookup is handled separately by cif_enrichment.py.
+    Returns dict with keys: email, telefono, web (or None for each).
     """
-    result = {"cif": None, "email": None, "telefono": None, "web": None}
+    result = {"email": None, "telefono": None, "web": None}
     nombre = company.nombre
 
     # 1. Search DuckDuckGo
@@ -248,47 +244,30 @@ async def enrich_company_web(
     # Web confirmed as belonging to the company
     result["web"] = corporate_url
 
-    # Collect all text to analyze: homepage + legal pages
+    # Collect all text to analyze: homepage + contact/legal pages
     all_texts = [homepage_html]
 
-    # 5. Find and fetch legal pages
+    # 5. Find and fetch contact/legal pages
     legal_links = _find_legal_links(homepage_html, corporate_url)
-    for link in legal_links[:3]:  # Max 3 legal pages
+    for link in legal_links[:3]:  # Max 3 pages
         legal_html = await _fetch_page(link, client)
         if legal_html:
             all_texts.append(legal_html)
         await asyncio.sleep(0.5)
 
-    # 6. Extract data from all pages
-    all_cifs = []
+    # 6. Extract email and phone from all pages
     all_emails = []
     all_phones = []
 
     for html in all_texts:
         soup = BeautifulSoup(html, "html.parser")
         text = soup.get_text(separator=" ", strip=True)
-        all_cifs.extend(_extract_cifs(text))
         all_emails.extend(_extract_emails(text))
         all_phones.extend(_extract_phones(text))
 
-    # 7. Validate CIF - only accept if found alongside company name
-    if all_cifs:
-        for html in all_texts:
-            soup = BeautifulSoup(html, "html.parser")
-            page_text = soup.get_text(separator=" ", strip=True)
-            page_text_upper = unidecode(page_text).upper()
-
-            for cif in all_cifs:
-                if cif in page_text and norm_name[:15] in page_text_upper:
-                    result["cif"] = cif
-                    break
-            if result["cif"]:
-                break
-
-    # 8. Best email (prefer info@, contacto@, not noreply@)
+    # 7. Best email (prefer info@, contacto@, not noreply@)
     if all_emails:
         unique_emails = list(dict.fromkeys(all_emails))
-        # Prioritize contact-like emails
         for prefix in ["info", "contacto", "contact", "hola", "admin"]:
             for email in unique_emails:
                 if email.lower().startswith(prefix):
@@ -297,13 +276,12 @@ async def enrich_company_web(
             if result["email"]:
                 break
         if not result["email"]:
-            # Skip generic/tracking emails
             for email in unique_emails:
                 if not any(skip in email.lower() for skip in ["noreply", "no-reply", "mailer", "tracking", "analytics"]):
                     result["email"] = email
                     break
 
-    # 9. First valid phone
+    # 8. First valid phone
     if all_phones:
         result["telefono"] = all_phones[0]
 
@@ -331,7 +309,7 @@ async def enrich_batch_web(
         )
     ).all()
 
-    stats = {"attempted": 0, "web_found": 0, "cif_found": 0, "email_found": 0, "phone_found": 0}
+    stats = {"attempted": 0, "web_found": 0, "email_found": 0, "phone_found": 0}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         for company in companies:
@@ -342,9 +320,6 @@ async def enrich_batch_web(
                 if result["web"]:
                     company.web = result["web"]
                     stats["web_found"] += 1
-                if result["cif"] and not company.cif:
-                    company.cif = result["cif"]
-                    stats["cif_found"] += 1
                 if result["email"]:
                     company.email = result["email"]
                     stats["email_found"] += 1
@@ -354,7 +329,7 @@ async def enrich_batch_web(
 
                 logger.info(
                     f"[WebEnrich] {company.nombre}: "
-                    f"web={result['web'] is not None}, cif={result['cif']}, "
+                    f"web={result['web'] is not None}, "
                     f"email={result['email'] is not None}, tel={result['telefono'] is not None}"
                 )
             except Exception as e:
@@ -371,7 +346,7 @@ async def enrich_single_web(
     company_id: int,
     db: AsyncSession,
 ) -> dict:
-    """Enrich a single company via web search."""
+    """Enrich a single company via web search (web, email, phone only)."""
     company = await db.get(Company, company_id)
     if not company:
         return {"error": "Empresa no encontrada"}
@@ -381,8 +356,6 @@ async def enrich_single_web(
 
     if result["web"]:
         company.web = result["web"]
-    if result["cif"] and not company.cif:
-        company.cif = result["cif"]
     if result["email"]:
         company.email = result["email"]
     if result["telefono"]:

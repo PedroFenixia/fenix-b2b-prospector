@@ -218,6 +218,7 @@ class Subsidy(Base):
     cnae_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     comunidad_autonoma: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    archivada: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -227,6 +228,7 @@ class Subsidy(Base):
         Index("idx_subsidies_organismo", "organismo"),
         Index("idx_subsidies_sector", "sector"),
         Index("idx_subsidies_ccaa", "comunidad_autonoma"),
+        Index("idx_subsidies_archivada", "archivada"),
     )
 
 
@@ -250,6 +252,7 @@ class Tender(Base):
     cnae_codes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     comunidad_autonoma: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    archivada: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
@@ -260,6 +263,7 @@ class Tender(Base):
         Index("idx_tenders_estado", "estado"),
         Index("idx_tenders_tipo", "tipo_contrato"),
         Index("idx_tenders_ccaa", "comunidad_autonoma"),
+        Index("idx_tenders_archivada", "archivada"),
     )
 
 

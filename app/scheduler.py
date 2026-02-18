@@ -118,6 +118,20 @@ async def daily_boe_judicial_update():
         logger.error(f"[Scheduler] BOE judicial failed: {e}")
 
 
+async def daily_archive_expired():
+    """Archive subsidies and tenders whose deadline has passed."""
+    from app.db.engine import async_session
+    from app.services.opportunity_service import archive_expired
+
+    logger.info("[Scheduler] Archiving expired opportunities")
+    try:
+        async with async_session() as db:
+            stats = await archive_expired(db)
+        logger.info(f"[Scheduler] Archive: {stats['subsidies_archived']} subsidies, {stats['tenders_archived']} tenders")
+    except Exception as e:
+        logger.error(f"[Scheduler] Archive failed: {e}")
+
+
 _enrichment_running = False
 _enrichment_stop = False
 _enrichment_stats = {
@@ -140,7 +154,7 @@ def stop_enrichment():
 
 
 async def full_enrichment():
-    """Run full CIF + web enrichment for ALL companies missing data."""
+    """Run full enrichment for ALL companies: Phase 1 = CIF, Phase 2 = contacto (web/email/phone)."""
     global _enrichment_running, _enrichment_stop
     if _enrichment_running:
         logger.info("[Enrichment] Already running, skipping")
@@ -199,7 +213,7 @@ async def full_enrichment():
                 total = await db.scalar(select(f.count(Company.id)).where(Company.web.is_(None), Company.estado == "activa")) or 0
                 stats["web_total"] = total
                 stats["phase"] = "web"
-                logger.info(f"[Enrichment] Phase 2: {total} companies without web")
+                logger.info(f"[Enrichment] Phase 2 (contacto): {total} companies without web")
                 offset = 0
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     while not _enrichment_stop:
@@ -220,8 +234,6 @@ async def full_enrichment():
                                 if r["web"]:
                                     c.web = r["web"]
                                     stats["web_found"] += 1
-                                if r["cif"] and not c.cif:
-                                    c.cif = r["cif"]
                                 if r["email"]:
                                     c.email = r["email"]
                                 if r["telefono"]:
@@ -287,10 +299,19 @@ def start_scheduler(hour: int = 10, minute: int = 0):
         replace_existing=True,
     )
 
+    # Archive expired opportunities at midnight
+    scheduler.add_job(
+        daily_archive_expired,
+        CronTrigger(hour=0, minute=5),
+        id="daily_archive",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info(
         f"[Scheduler] Started - daily updates at {hour:02d}:{minute:02d}, "
-        f"{hour:02d}:{minute+15:02d}, {hour:02d}:{minute+30:02d}, {hour:02d}:{minute+45:02d}"
+        f"{hour:02d}:{minute+15:02d}, {hour:02d}:{minute+30:02d}, {hour:02d}:{minute+45:02d}, "
+        f"archive at 00:05"
     )
 
 

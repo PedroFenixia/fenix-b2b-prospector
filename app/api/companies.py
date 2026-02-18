@@ -42,20 +42,8 @@ async def patch_company_cif(
     return company
 
 
-@router.post("/{company_id}/lookup-cif")
-async def lookup_company_cif(company_id: int, db: AsyncSession = Depends(get_db)):
-    """Lookup CIF for a company searching the web."""
-    from app.services.cif_enrichment import enrich_company_cif
-    cif = await enrich_company_cif(company_id, db)
-    if cif:
-        return {"cif": cif}
-    return {"cif": None, "error": "CIF no encontrado"}
-
-
-@router.post("/{company_id}/enrich-web")
-async def enrich_company_web(company_id: int, request: Request, db: AsyncSession = Depends(get_db)):
-    """Search web for company CIF, email, phone."""
-    user = getattr(request.state, "user", None)
+async def _check_enrichment_limit(user: dict, db: AsyncSession) -> JSONResponse | None:
+    """Check enrichment plan limits. Returns error response or None if OK."""
     if not user:
         return JSONResponse({"error": "Inicia sesion para usar el enriquecimiento."}, status_code=401)
 
@@ -81,6 +69,31 @@ async def enrich_company_web(company_id: int, request: Request, db: AsyncSession
                 )
             db_user.enrichments_this_month += 1
             await db.commit()
+    return None
+
+
+@router.post("/{company_id}/lookup-cif")
+async def lookup_company_cif(company_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Lookup CIF for a company searching public web sources."""
+    user = getattr(request.state, "user", None)
+    error = await _check_enrichment_limit(user, db)
+    if error:
+        return error
+
+    from app.services.cif_enrichment import enrich_company_cif
+    cif = await enrich_company_cif(company_id, db)
+    if cif:
+        return {"cif": cif}
+    return {"cif": None, "error": "CIF no encontrado"}
+
+
+@router.post("/{company_id}/enrich-web")
+async def enrich_company_web(company_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Search web for company website, email and phone."""
+    user = getattr(request.state, "user", None)
+    error = await _check_enrichment_limit(user, db)
+    if error:
+        return error
 
     from app.services.web_enrichment import enrich_single_web
     result = await enrich_single_web(company_id, db)
