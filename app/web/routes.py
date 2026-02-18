@@ -388,28 +388,8 @@ async def search_results(
 ):
     # Convert empty strings to None for optional numeric fields
     _score_min = int(score_min) if score_min and score_min.strip() else None
-    # Check search limits for free users
+    # Searches are unlimited for all plans (including anonymous Free users)
     user = getattr(request.state, "user", None)
-    if user and page == 1:  # Only count on first page (new search)
-        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
-        if limits["searches"] != -1:
-            from app.db.models import User
-            from datetime import datetime as _dt
-            db_user = await db.get(User, user["user_id"])
-            if db_user:
-                current_month = _dt.now().strftime("%Y-%m")
-                if db_user.month_reset != current_month:
-                    db_user.searches_this_month = 0
-                    db_user.exports_this_month = 0
-                    db_user.month_reset = current_month
-                if db_user.searches_this_month >= limits["searches"]:
-                    return HTMLResponse(
-                        '<div class="text-center py-8 text-red-500 text-sm font-medium">'
-                        f'Has alcanzado el limite de {limits["searches"]} busquedas/mes. '
-                        '<a href="/pricing" class="underline">Mejora tu plan</a> para busquedas ilimitadas.</div>'
-                    )
-                db_user.searches_this_month += 1
-                await db.commit()
 
     filters = SearchFilters(
         q=q or None, cif=cif or None, provincia=provincia or None,
@@ -433,30 +413,9 @@ async def company_detail(
     company_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    user = get_current_user(request)
+    # Detail views are unlimited for all plans (including anonymous)
+    user = getattr(request.state, "user", None)
     user_id = user["user_id"] if user else None
-
-    # --- Usage metering: count detail views ---
-    if user_id:
-        from app.db.models import User
-        from datetime import datetime
-        db_user = await db.get(User, user_id)
-        if db_user:
-            current_month = datetime.now().strftime("%Y-%m")
-            if db_user.month_reset != current_month:
-                db_user.searches_this_month = 0
-                db_user.exports_this_month = 0
-                db_user.detail_views_this_month = 0
-                db_user.month_reset = current_month
-            # Check limit
-            limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
-            if limits["detail_views"] != -1 and db_user.detail_views_this_month >= limits["detail_views"]:
-                return templates.TemplateResponse("limit_reached.html", _ctx(
-                    request, limit_type="detail_views", limit=limits["detail_views"],
-                    active_page="search",
-                ))
-            db_user.detail_views_this_month += 1
-            await db.commit()
 
     company = await get_company(company_id, db)
     if not company:

@@ -19,11 +19,14 @@ SESSION_MAX_AGE = 86400  # 24 hours
 
 _signer = URLSafeTimedSerializer(settings.secret_key)
 
-# Plan limits
+# Plan limits (-1 = unlimited, 0 = disabled)
+# Free: full search & detail access, no productivity tools
+# Pro €29/mes: exports, watchlist, alerts, scoring, enrichment
+# Enterprise €79/mes: unlimited everything + API
 PLAN_LIMITS = {
-    "free": {"searches": 50, "exports": 5, "watchlist": 10, "detail_views": 10, "alerts": 5, "scoring": False, "enrichment": False},
-    "pro": {"searches": -1, "exports": 50, "watchlist": 100, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True},
-    "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True},
+    "free": {"searches": -1, "exports": 0, "watchlist": 0, "detail_views": -1, "alerts": 0, "scoring": False, "enrichment": False},
+    "pro": {"searches": -1, "exports": 100, "watchlist": 50, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True, "enrichment_limit": 50},
+    "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True, "enrichment_limit": -1},
 }
 
 # Lower bcrypt rounds for faster login (default 12 → 8, ~15x faster, still secure)

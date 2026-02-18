@@ -45,6 +45,7 @@ class User(Base):
     searches_this_month: Mapped[int] = mapped_column(Integer, default=0)
     exports_this_month: Mapped[int] = mapped_column(Integer, default=0)
     detail_views_this_month: Mapped[int] = mapped_column(Integer, default=0)
+    enrichments_this_month: Mapped[int] = mapped_column(Integer, default=0)
     month_reset: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # YYYY-MM
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

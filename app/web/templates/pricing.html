@@ -15,6 +15,7 @@
         <!-- Free -->
         <div class="card p-8 flex flex-col">
             <h3 class="text-lg font-bold text-gray-900">Free</h3>
+            <p class="text-xs text-gray-400 mt-1">Sin registro</p>
             <div class="mt-4 mb-6">
                 <span class="text-4xl font-extrabold text-gray-900">0&euro;</span>
                 <span class="text-gray-400 text-sm">/mes</span>
@@ -22,15 +23,23 @@
             <ul class="space-y-3 text-sm text-gray-600 flex-1">
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    50 b&uacute;squedas/mes
+                    B&uacute;squedas ilimitadas
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    5 exportaciones/mes
+                    Fichas de empresa ilimitadas
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    10 empresas en vigilancia
+                    Ver oportunidades (licitaciones, subvenciones)
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-gray-300 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <span class="text-gray-400">Exportar CSV/Excel</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-gray-300 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <span class="text-gray-400">Watchlist + Alertas</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-gray-300 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -38,10 +47,10 @@
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-gray-300 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    <span class="text-gray-400">Enriquecimiento de datos</span>
+                    <span class="text-gray-400">Enriquecimiento (web, CIF)</span>
                 </li>
             </ul>
-            {% if user and user.plan == 'free' %}
+            {% if user and user.get('plan') == 'free' %}
             <div class="mt-8 text-center py-3 border border-brand-500 text-brand-500 rounded-2xl font-semibold text-sm">
                 Tu plan actual
             </div>
@@ -50,7 +59,7 @@
                 Plan b&aacute;sico
             </div>
             {% else %}
-            <a href="/register"
+            <a href="/search"
                class="mt-8 block text-center py-3 border border-gray-200 text-gray-700 rounded-2xl font-semibold text-sm hover:bg-gray-50 transition">
                 Empezar gratis
             </a>
@@ -72,11 +81,11 @@
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    50 exportaciones/mes
+                    100 exportaciones CSV/Excel al mes
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    100 empresas en vigilancia
+                    50 empresas en vigilancia + alertas
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -84,14 +93,22 @@
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Enriquecimiento de datos
+                    50 enriquecimientos/mes (web, CIF)
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Oportunidades: ver + filtrar
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Soporte por email
                 </li>
             </ul>
-            {% if user and user.plan == 'pro' %}
+            {% if user and user.get('plan') == 'pro' %}
             <div class="mt-8 text-center py-3 border border-brand-500 text-brand-500 rounded-2xl font-semibold text-sm">
                 Tu plan actual
             </div>
-            {% elif user and user.plan == 'enterprise' %}
+            {% elif user and user.get('plan') == 'enterprise' %}
             <div class="mt-8 text-center py-3 border border-gray-200 text-gray-400 rounded-2xl text-sm">
                 Incluido en Enterprise
             </div>
@@ -126,18 +143,26 @@
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Watchlist ilimitada
+                    Watchlist + alertas ilimitadas
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Scoring + Enriquecimiento
+                    Scoring + Enriquecimiento ilimitado
                 </li>
                 <li class="flex items-start gap-2">
                     <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Acceso API
+                    Oportunidades: ver + filtrar + alertas
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    API REST
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-brand-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Soporte prioritario
                 </li>
             </ul>
-            {% if user and user.plan == 'enterprise' %}
+            {% if user and user.get('plan') == 'enterprise' %}
             <div class="mt-8 text-center py-3 border border-brand-500 text-brand-500 rounded-2xl font-semibold text-sm">
                 Tu plan actual
             </div>
@@ -156,8 +181,8 @@
     </div>
 
     <div class="mt-12 text-center text-sm text-gray-400">
-        <p>Todos los planes incluyen acceso a +1M empresas del BORME, subvenciones y licitaciones.</p>
-        <p class="mt-1">Cancela cuando quieras. Sin permanencia. Pagos seguros con Stripe.</p>
+        <p>Todos los planes incluyen acceso a +1,2M empresas del BORME, subvenciones y licitaciones.</p>
+        <p class="mt-1">El plan Free no requiere registro. Cancela cuando quieras. Sin permanencia. Pagos seguros con Stripe.</p>
     </div>
 
     <!-- Payment badges -->

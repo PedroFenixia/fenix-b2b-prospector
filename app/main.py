@@ -94,15 +94,23 @@ PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/health", "/static/", "
                 "/pricing", "/legal/", "/api/billing/webhook", "/api/billing/rc-webhook",
                 "/api/solvency/"]
 
+# Paths accessible without login (Free sin registro) - user data injected if available
+OPEN_PATHS = ["/", "/search", "/companies/", "/opportunities"]
+
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """Protect all routes. Extract user info into request.state."""
     path = request.url.path
 
-    # Allow public paths
+    # Allow public paths (no user injection)
     if any(path.startswith(p) for p in PUBLIC_PATHS):
         request.state.user = None
+        return await call_next(request)
+
+    # Open paths: accessible without login, but inject user if logged in
+    if any(path == p or path.startswith(p) for p in OPEN_PATHS):
+        request.state.user = get_current_user(request)
         return await call_next(request)
 
     # Check auth

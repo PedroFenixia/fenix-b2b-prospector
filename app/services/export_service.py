@@ -45,6 +45,7 @@ async def _increment_export_count(user_id: int | None, db: AsyncSession):
     if user.month_reset != current_month:
         user.searches_this_month = 0
         user.exports_this_month = 0
+        user.enrichments_this_month = 0
         user.month_reset = current_month
     user.exports_this_month += 1
     await db.commit()
