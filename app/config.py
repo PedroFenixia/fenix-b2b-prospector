@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     borme_pdf_dir: Path = Path("data/borme_pdfs")
     export_dir: Path = Path("data/exports")
 
-    # Database
-    database_url: str = "postgresql+asyncpg://fenix:F3n1x!PG2026@localhost:5432/fenix_prospector"
+    # Database (MUST override via .env in production)
+    database_url: str = "postgresql+asyncpg://fenix:changeme@localhost:5432/fenix_prospector"
     db_pool_size: int = 10
     db_max_overflow: int = 20
     pg_fts_config: str = "fenix_spanish"
@@ -32,10 +32,10 @@ class Settings(BaseSettings):
     # Ej: socks5://127.0.0.1:1080,socks5://127.0.0.1:1081,http://user:pass@proxy:8080
     enrichment_proxies: str = ""
 
-    # Auth
-    admin_password: str = "FenixIA360!"
-    demo_password: str = "fenixiaprospector"
-    secret_key: str = "fenix-b2b-secret-change-me-in-production"
+    # Auth (MUST override via .env in production)
+    admin_password: str = ""
+    demo_password: str = ""
+    secret_key: str = ""
 
     # Stripe (procesador de pagos)
     stripe_secret_key: str = ""
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # Typesense (motor de busqueda)
     typesense_url: str = "http://localhost:8108"
-    typesense_api_key: str = "fenix-ts-local-key"
+    typesense_api_key: str = ""
     typesense_collection: str = "companies"
 
     # Email (SMTP for verification)
@@ -69,6 +69,21 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.borme_pdf_dir.mkdir(parents=True, exist_ok=True)
         self.export_dir.mkdir(parents=True, exist_ok=True)
+
+    def validate_secrets(self) -> None:
+        """Fail fast if critical secrets are not set."""
+        missing = []
+        if not self.secret_key:
+            missing.append("SECRET_KEY")
+        if not self.admin_password:
+            missing.append("ADMIN_PASSWORD")
+        if "changeme" in self.database_url:
+            missing.append("DATABASE_URL")
+        if missing:
+            raise ValueError(
+                f"Missing required secrets in .env: {', '.join(missing)}. "
+                "Copy .env.example to .env and fill in production values."
+            )
 
 
 settings = Settings()

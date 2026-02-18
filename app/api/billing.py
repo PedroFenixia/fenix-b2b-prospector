@@ -40,7 +40,7 @@ async def create_checkout(request: Request, db: AsyncSession = Depends(get_db)):
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         logger.exception("Checkout error")
-        return JSONResponse({"error": f"Error al crear sesion de pago: {e}"}, status_code=500)
+        return JSONResponse({"error": "Error al crear sesion de pago"}, status_code=500)
 
 
 @router.get("/portal")
@@ -76,9 +76,12 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/rc-webhook")
 async def revenuecat_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """Handle RevenueCat webhook events (primary subscription lifecycle)."""
-    # Verify authorization
+    # Verify authorization (constant-time to prevent timing attacks)
+    import hmac
     auth_header = request.headers.get("authorization", "")
-    if settings.revenuecat_webhook_auth and auth_header != settings.revenuecat_webhook_auth:
+    if not settings.revenuecat_webhook_auth:
+        return JSONResponse({"error": "Webhook auth not configured"}, status_code=503)
+    if not hmac.compare_digest(auth_header.encode(), settings.revenuecat_webhook_auth.encode()):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     body = await request.json()

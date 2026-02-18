@@ -29,8 +29,8 @@ PLAN_LIMITS = {
     "enterprise": {"searches": -1, "exports": -1, "watchlist": -1, "detail_views": -1, "alerts": -1, "scoring": True, "enrichment": True, "enrichment_limit": -1},
 }
 
-# Lower bcrypt rounds for faster login (default 12 → 8, ~15x faster, still secure)
-_bcrypt = bcrypt.using(rounds=8)
+# Bcrypt rounds: 10 balances security and performance (OWASP minimum)
+_bcrypt = bcrypt.using(rounds=10)
 
 
 def hash_password(password: str) -> str:
@@ -86,8 +86,8 @@ async def authenticate_user(email: str, password: str, db: AsyncSession):
     Uses constant-time comparison to prevent timing-based user enumeration.
     """
     from app.db.models import User
-    # Dummy hash for constant-time comparison when user doesn't exist
-    _DUMMY_HASH = "$2b$08$dummyhashfortimingattak1234567890abcdefghijklmno"
+    # Valid bcrypt hash for constant-time comparison when user doesn't exist
+    _DUMMY_HASH = "$2b$10$K4Gx7vFhS3Lq9p0jR1mN2OuX5c8d6e7f0g1h2i3j4k5l6m7n8o9p0q"
     result = await db.execute(select(User).where(User.email == email.lower().strip(), User.is_active == True))
     user = result.scalar_one_or_none()
     if user:

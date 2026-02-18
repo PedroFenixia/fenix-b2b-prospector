@@ -2,10 +2,18 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.engine import get_db
+
+
+def _require_admin(request: Request):
+    user = getattr(request.state, "user", None)
+    if not user or user.get("role") != "admin":
+        return False
+    return True
 from app.schemas.opportunity import (
     OpportunityFilters,
     PaginatedSubsidies,
@@ -106,9 +114,12 @@ async def list_judicial(
 
 @router.post("/fetch-subsidies")
 async def trigger_fetch_subsidies(
+    request: Request,
     fecha: date | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    if not _require_admin(request):
+        return JSONResponse({"error": "Admin requerido"}, status_code=403)
     """Trigger fetching subsidies from BOE for a given date."""
     from app.services.boe_subsidies_fetcher import fetch_boe_subsidies
     from app.services.opportunity_service import upsert_subsidies
@@ -121,8 +132,11 @@ async def trigger_fetch_subsidies(
 
 @router.post("/fetch-tenders")
 async def trigger_fetch_tenders(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    if not _require_admin(request):
+        return JSONResponse({"error": "Admin requerido"}, status_code=403)
     """Trigger fetching recent tenders from PLACSP."""
     from app.services.placsp_fetcher import fetch_recent_tenders
     from app.services.opportunity_service import upsert_tenders
@@ -134,9 +148,12 @@ async def trigger_fetch_tenders(
 
 @router.post("/fetch-judicial")
 async def trigger_fetch_judicial(
+    request: Request,
     fecha: date | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    if not _require_admin(request):
+        return JSONResponse({"error": "Admin requerido"}, status_code=403)
     """Trigger fetching judicial notices from BOE."""
     from app.services.boe_judicial_fetcher import fetch_boe_judicial
     from app.services.opportunity_service import upsert_judicial

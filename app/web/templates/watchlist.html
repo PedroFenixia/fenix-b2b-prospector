@@ -108,13 +108,20 @@ async function addActTypeWatch(e) {
         const div = document.createElement('div');
         div.className = 'flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2';
         div.id = 'atw-' + data.id;
-        div.innerHTML = `
-            <div class="flex items-center gap-2">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-100 text-brand-700 text-xs font-semibold">${tipo_acto}</span>
-                <span class="text-gray-400 text-xs">${prov}</span>
-            </div>
-            <button onclick="removeActTypeWatch(${data.id})" class="text-red-400 hover:text-red-600 text-xs font-medium transition">Eliminar</button>
-        `;
+        var inner = document.createElement('div');
+        inner.className = 'flex items-center gap-2';
+        var span1 = document.createElement('span');
+        span1.className = 'inline-flex items-center px-2 py-0.5 rounded-md bg-brand-100 text-brand-700 text-xs font-semibold';
+        span1.textContent = tipo_acto;
+        var span2 = document.createElement('span');
+        span2.className = 'text-gray-400 text-xs';
+        span2.textContent = prov;
+        inner.appendChild(span1); inner.appendChild(span2);
+        var btnDel = document.createElement('button');
+        btnDel.className = 'text-red-400 hover:text-red-600 text-xs font-medium transition';
+        btnDel.textContent = 'Eliminar';
+        btnDel.onclick = function() { removeActTypeWatch(data.id); };
+        div.appendChild(inner); div.appendChild(btnDel);
         list.appendChild(div);
         form.reset();
     } else {

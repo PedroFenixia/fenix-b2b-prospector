@@ -469,13 +469,29 @@ async function enrichWeb(companyId) {
             return;
         }
         if (data.web) {
-            document.getElementById('web-value').innerHTML = '<a href="' + data.web + '" target="_blank" class="text-brand-500 hover:text-brand-600 underline">' + data.web.substring(0,50) + '</a>';
+            var webEl = document.getElementById('web-value');
+            var a = document.createElement('a');
+            try { new URL(data.web); a.href = data.web; } catch(e) { a.href = '#'; }
+            a.target = '_blank'; a.rel = 'noopener noreferrer';
+            a.className = 'text-brand-500 hover:text-brand-600 underline';
+            a.textContent = data.web.substring(0,50);
+            webEl.textContent = ''; webEl.appendChild(a);
         }
         if (data.email) {
-            document.getElementById('email-value').innerHTML = '<a href="mailto:' + data.email + '" class="text-brand-500 hover:text-brand-600">' + data.email + '</a>';
+            var emailEl = document.getElementById('email-value');
+            var a2 = document.createElement('a');
+            a2.href = 'mailto:' + encodeURIComponent(data.email);
+            a2.className = 'text-brand-500 hover:text-brand-600';
+            a2.textContent = data.email;
+            emailEl.textContent = ''; emailEl.appendChild(a2);
         }
         if (data.telefono) {
-            document.getElementById('phone-value').innerHTML = '<a href="tel:' + data.telefono + '" class="text-brand-500 hover:text-brand-600">' + data.telefono + '</a>';
+            var phoneEl = document.getElementById('phone-value');
+            var a3 = document.createElement('a');
+            a3.href = 'tel:' + data.telefono.replace(/[^+\d]/g, '');
+            a3.className = 'text-brand-500 hover:text-brand-600';
+            a3.textContent = data.telefono;
+            phoneEl.textContent = ''; phoneEl.appendChild(a3);
         }
         var found = data.web || data.email || data.telefono;
         btn.textContent = found ? 'Contacto encontrado' : 'No encontrado';

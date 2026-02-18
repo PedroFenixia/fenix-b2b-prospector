@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from app.auth import get_current_user
 from app.config import settings
 from app.db.engine import engine
 from app.db.models import Base
+
+_is_production = os.getenv("ENV", "production") == "production"
 
 
 @asynccontextmanager
@@ -70,10 +73,12 @@ app = FastAPI(
     description="Lead prospecting from Spanish public registries (BOE/BORME)",
     version="0.2.0",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
 )
 
 # Session middleware for auth
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key or "dev-only-insecure-key")
 
 # Static files
 static_dir = Path(__file__).parent / "web" / "static"
@@ -100,6 +105,18 @@ PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/health", "/static/", "
 
 # Paths accessible without login (Free sin registro) - user data injected if available
 OPEN_PATHS = ["/", "/search", "/companies/", "/opportunities"]
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if _is_production:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 @app.middleware("http")
