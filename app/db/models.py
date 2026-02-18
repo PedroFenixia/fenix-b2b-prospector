@@ -73,6 +73,7 @@ class Company(Base):
     localidad: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     objeto_social: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cnae_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cnae_inferred: Mapped[bool] = mapped_column(Boolean, default=False)
     capital_social: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     fecha_constitucion: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     fecha_primera_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
@@ -280,6 +281,7 @@ class JudicialNotice(Base):
     provincia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     deudor: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    deudor_cif: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     url_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     url_pdf: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     fecha_publicacion: Mapped[date] = mapped_column(Date, nullable=False)
@@ -346,6 +348,7 @@ class Alert(Base):
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
     titulo: Mapped[str] = mapped_column(Text, nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(Text, default="watchlist")  # watchlist, act_type
     leida: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

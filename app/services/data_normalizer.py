@@ -55,8 +55,9 @@ def normalize_company(
     if capital and parsed.capital_moneda == "PTS":
         capital = round(capital * PTS_TO_EUR, 2)
 
-    # CNAE: best-effort from objeto_social
+    # CNAE: best-effort from objeto_social (marked as inferred)
     cnae_code = guess_cnae(parsed.objeto_social) if parsed.objeto_social else None
+    cnae_inferred = cnae_code is not None  # All CNAE from guess_cnae is inferred
 
     # Fecha constitución from "Comienzo de operaciones"
     fecha_constitucion = _parse_date(parsed.fecha_inicio) if parsed.fecha_inicio else None
@@ -80,6 +81,7 @@ def normalize_company(
         "localidad": localidad,
         "objeto_social": parsed.objeto_social,
         "cnae_code": cnae_code,
+        "cnae_inferred": cnae_inferred,
         "capital_social": capital,
         "datos_registrales": parsed.datos_registrales,
         "fecha_constitucion": fecha_constitucion,

@@ -295,6 +295,30 @@ async def upsert_judicial(notices: list[dict], db: AsyncSession) -> int:
     return count
 
 
+async def find_opportunities_by_cnae(cnae_code: str, db: AsyncSession, limit: int = 10) -> dict:
+    """Find subsidies and tenders matching a CNAE code."""
+    if not cnae_code:
+        return {"subsidies": [], "tenders": []}
+
+    pattern = f"%{cnae_code}%"
+
+    subsidies = (await db.scalars(
+        select(Subsidy)
+        .where(Subsidy.cnae_codes.ilike(pattern), Subsidy.archivada == False)
+        .order_by(Subsidy.fecha_publicacion.desc())
+        .limit(limit)
+    )).all()
+
+    tenders = (await db.scalars(
+        select(Tender)
+        .where(Tender.cnae_codes.ilike(pattern), Tender.archivada == False)
+        .order_by(Tender.fecha_publicacion.desc())
+        .limit(limit)
+    )).all()
+
+    return {"subsidies": subsidies, "tenders": tenders}
+
+
 async def archive_expired(db: AsyncSession) -> dict:
     """Archive subsidies and tenders whose fecha_limite has passed."""
     today = date.today()

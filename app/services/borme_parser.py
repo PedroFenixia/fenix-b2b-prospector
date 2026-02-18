@@ -278,6 +278,11 @@ def _extract_datos_registrales(text: str) -> str | None:
     return None
 
 
+def _clean_leading_punctuation(s: str) -> str:
+    """Remove all punctuation/symbols before the first letter."""
+    return re.sub(r'^[^a-zA-ZÀ-ÿ]+', '', s).strip()
+
+
 def _extract_officers(text: str) -> list[ParsedOfficer]:
     """Extract officer names and roles from appointment/resignation text."""
     officers = []
@@ -287,6 +292,7 @@ def _extract_officers(text: str) -> list[ParsedOfficer]:
         # Clean up multiple names separated by semicolons
         names = [n.strip() for n in nombre_raw.split(";") if n.strip()]
         for name in names:
+            name = _clean_leading_punctuation(name)
             if len(name) > 2:
                 officers.append(ParsedOfficer(nombre=name, cargo=cargo))
     return officers

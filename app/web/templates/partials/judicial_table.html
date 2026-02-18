@@ -29,7 +29,12 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">Judicial</span>
                     {% endif %}
                 </td>
-                <td class="py-3 px-4 text-sm text-gray-600">{{ n.deudor or '-' }}</td>
+                <td class="py-3 px-4">
+                    <p class="text-sm text-gray-600">{{ n.deudor or '-' }}</p>
+                    {% if n.deudor_cif %}
+                    <p class="text-[11px] text-gray-400 font-mono">{{ n.deudor_cif }}</p>
+                    {% endif %}
+                </td>
                 <td class="py-3 px-4 text-sm text-gray-500 max-w-[200px] truncate">{{ n.juzgado or '-' }}</td>
                 <td class="py-3 px-4 text-sm text-gray-500 font-mono text-xs">{{ n.fecha_publicacion }}</td>
                 <td class="py-3 px-4">

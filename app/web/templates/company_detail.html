@@ -38,7 +38,7 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-600 border border-gray-100">{{ company.estado }}</span>
                     {% endif %}
                     {% if company.cnae_code %}
-                    <span class="text-xs text-gray-400 font-mono">CNAE {{ company.cnae_code }}</span>
+                    <span class="text-xs text-gray-400 font-mono">CNAE {{ company.cnae_code }}{% if company.cnae_inferred %} *{% endif %}</span>
                     {% endif %}
                 </div>
             </div>
@@ -100,7 +100,12 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div class="bg-gray-50 rounded-xl p-3">
                 <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">CNAE</p>
-                <p class="text-sm font-bold text-gray-900 font-mono">{{ company.cnae_code or '-' }}</p>
+                <div class="flex items-center gap-1.5">
+                    <p class="text-sm font-bold text-gray-900 font-mono">{{ company.cnae_code or '-' }}</p>
+                    {% if company.cnae_code and company.cnae_inferred %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-600 border border-amber-100" title="Inferido del objeto social, no figura en el BORME">No certificado</span>
+                    {% endif %}
+                </div>
                 {% if cnae_desc %}
                 <p class="text-[11px] text-gray-500 mt-0.5">{{ cnae_desc }}</p>
                 {% endif %}
@@ -248,8 +253,8 @@
                 <tbody>
                     {% for officer in company.officers %}
                     <tr class="border-b border-gray-50 hover:bg-[#FAFAF5] transition">
-                        <td class="py-3 px-4 text-sm font-medium text-gray-900">{{ officer.nombre_persona }}</td>
-                        <td class="py-3 px-4 text-sm text-gray-600">{{ officer.cargo }}</td>
+                        <td class="py-3 px-4 text-sm font-medium text-gray-900">{{ officer.nombre_persona|clean_punct }}</td>
+                        <td class="py-3 px-4 text-sm text-gray-600">{{ officer.cargo|clean_punct }}</td>
                         <td class="py-3 px-4">
                             {% if officer.tipo_evento == 'nombramiento' %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-600 border border-green-100">Nombramiento</span>
@@ -319,6 +324,61 @@
         <p class="text-gray-400 text-sm">No hay actos registrados</p>
         {% endif %}
     </div>
+
+    <!-- Matching Opportunities by CNAE -->
+    {% if matching_opps and (matching_opps.subsidies or matching_opps.tenders) %}
+    <div class="card p-6">
+        <h2 class="text-base font-bold text-gray-900 mb-1">Oportunidades por CNAE</h2>
+        <p class="text-xs text-gray-400 mb-4">Subvenciones y licitaciones relacionadas con CNAE {{ company.cnae_code }}</p>
+
+        {% if matching_opps.subsidies %}
+        <div class="mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Subvenciones ({{ matching_opps.subsidies|length }})</h3>
+            <div class="space-y-2">
+                {% for s in matching_opps.subsidies %}
+                <div class="border border-gray-100 rounded-xl p-3 hover:bg-[#FAFAF5] transition">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-900 line-clamp-2">{{ s.titulo[:120] }}</p>
+                            <p class="text-[11px] text-gray-400 mt-1">{{ s.organismo or '' }} &middot; {{ s.fecha_publicacion }}</p>
+                        </div>
+                        {% if s.url_html %}
+                        <a href="{{ s.url_html }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-xs font-semibold whitespace-nowrap">BOE</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if matching_opps.tenders %}
+        <div>
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Licitaciones ({{ matching_opps.tenders|length }})</h3>
+            <div class="space-y-2">
+                {% for t in matching_opps.tenders %}
+                <div class="border border-gray-100 rounded-xl p-3 hover:bg-[#FAFAF5] transition">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-900 line-clamp-2">{{ t.titulo[:120] }}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <p class="text-[11px] text-gray-400">{{ t.organismo or '' }} &middot; {{ t.fecha_publicacion }}</p>
+                                {% if t.importe_estimado %}
+                                <span class="text-[11px] font-semibold text-brand-500">{{ t.importe_estimado|eu }}&euro;</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if t.url_licitacion %}
+                        <a href="{{ t.url_licitacion }}" target="_blank" class="text-brand-500 hover:text-brand-600 text-xs font-semibold whitespace-nowrap">PLACSP</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <script>

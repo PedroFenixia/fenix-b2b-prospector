@@ -7,28 +7,46 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-widest text-brand-500 mb-2">Vigilancia</p>
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Alertas</h1>
-            <p class="text-gray-500 mt-1 text-sm">Actividad nueva en empresas vigiladas</p>
+            <p class="text-gray-500 mt-1 text-sm">Actividad nueva en empresas vigiladas y tipos de acto suscritos</p>
         </div>
         <div class="flex gap-2">
             <a href="/watchlist" class="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
                 Empresas vigiladas
             </a>
             {% if unread_count > 0 %}
-            <button onclick="markAllRead()" class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+            <button type="button" onclick="markAllRead()" class="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
                 Marcar todas le&iacute;das
             </button>
             {% endif %}
         </div>
     </div>
 
-    <!-- Filter -->
-    <div class="flex gap-2">
-        <a href="/watchlist/alerts" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
-            Todas
-        </a>
-        <a href="/watchlist/alerts?solo_no_leidas=1" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
-            Sin leer {% if unread_count > 0 %}({{ unread_count }}){% endif %}
-        </a>
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-4">
+        <!-- Read/unread filter -->
+        <div class="flex gap-2">
+            <a href="/watchlist/alerts{% if source %}?source={{ source }}{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+                Todas
+            </a>
+            <a href="/watchlist/alerts?solo_no_leidas=1{% if source %}&source={{ source }}{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+                Sin leer {% if unread_count > 0 %}({{ unread_count }}){% endif %}
+            </a>
+        </div>
+
+        <span class="border-l border-gray-200"></span>
+
+        <!-- Source filter -->
+        <div class="flex gap-2">
+            <a href="/watchlist/alerts{% if solo_no_leidas %}?solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not source %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+                Todas las fuentes
+            </a>
+            <a href="/watchlist/alerts?source=watchlist{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'watchlist' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+                Empresas vigiladas
+            </a>
+            <a href="/watchlist/alerts?source=act_type{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'act_type' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+                Tipos de acto
+            </a>
+        </div>
     </div>
 
     <!-- Alerts List -->
@@ -40,6 +58,11 @@
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
+                    {% if alert.source == 'act_type' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-600 border border-purple-100">Tipo de acto</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100">Vigilancia</span>
+                    {% endif %}
                     {% if not alert.leida %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Nueva</span>
                     {% endif %}
@@ -53,7 +76,7 @@
                 {% endif %}
             </div>
             {% if not alert.leida %}
-            <button onclick="markRead({{ alert.id }}, this)" class="text-xs text-brand-500 hover:text-brand-600 font-medium whitespace-nowrap">Marcar le&iacute;da</button>
+            <button type="button" onclick="markRead({{ alert.id }}, this)" class="text-xs text-brand-500 hover:text-brand-600 font-medium whitespace-nowrap">Marcar le&iacute;da</button>
             {% endif %}
         </div>
         {% endfor %}
@@ -65,7 +88,7 @@
         {% if p == alerts.page %}
         <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
         {% else %}
-        <a href="/watchlist/alerts?page={{ p }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}"
+        <a href="/watchlist/alerts?page={{ p }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}"
            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</a>
         {% endif %}
         {% endfor %}
@@ -74,8 +97,8 @@
 
     {% else %}
     <div class="text-center py-16">
-        <p class="text-gray-400 text-sm">No hay alertas{% if solo_no_leidas %} sin leer{% endif %}.</p>
-        <p class="text-gray-300 text-xs mt-1">Las alertas se generan cuando se detecta actividad nueva en empresas vigiladas.</p>
+        <p class="text-gray-400 text-sm">No hay alertas{% if solo_no_leidas %} sin leer{% endif %}{% if source == 'watchlist' %} de empresas vigiladas{% elif source == 'act_type' %} de tipos de acto{% endif %}.</p>
+        <p class="text-gray-300 text-xs mt-1">Las alertas se generan cuando se detecta actividad nueva en empresas vigiladas o tipos de acto suscritos.</p>
     </div>
     {% endif %}
     </div>

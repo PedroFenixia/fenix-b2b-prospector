@@ -86,6 +86,7 @@ async def get_alerts(
     page: int = 1,
     per_page: int = 25,
     user_id: int | None = None,
+    source: str | None = None,
 ) -> dict:
     """Obtener alertas."""
     count_q = select(func.count(Alert.id))
@@ -97,6 +98,9 @@ async def get_alerts(
     if solo_no_leidas:
         count_q = count_q.where(Alert.leida == False)
         items_q = items_q.where(Alert.leida == False)
+    if source:
+        count_q = count_q.where(Alert.source == source)
+        items_q = items_q.where(Alert.source == source)
 
     total = await db.scalar(count_q)
     offset = (page - 1) * per_page
@@ -148,13 +152,16 @@ async def add_act_type_watch(
     filtro_provincia: str | None = None,
 ) -> ActTypeWatch | None:
     """Crear suscripción global a un tipo de acto."""
-    existing = await db.scalar(
-        select(ActTypeWatch).where(
-            ActTypeWatch.user_id == user_id,
-            ActTypeWatch.tipo_acto == tipo_acto,
-            ActTypeWatch.filtro_provincia == filtro_provincia,
-        )
+    prov = filtro_provincia or None
+    query = select(ActTypeWatch).where(
+        ActTypeWatch.user_id == user_id,
+        ActTypeWatch.tipo_acto == tipo_acto,
     )
+    if prov:
+        query = query.where(ActTypeWatch.filtro_provincia == prov)
+    else:
+        query = query.where(ActTypeWatch.filtro_provincia.is_(None))
+    existing = await db.scalar(query)
     if existing:
         existing.is_active = True
         await db.commit()
@@ -162,7 +169,7 @@ async def add_act_type_watch(
     entry = ActTypeWatch(
         user_id=user_id,
         tipo_acto=tipo_acto,
-        filtro_provincia=filtro_provincia or None,
+        filtro_provincia=prov,
     )
     db.add(entry)
     await db.commit()
@@ -243,6 +250,7 @@ async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
                     tipo=act.tipo_acto,
                     titulo=f"{act.company.nombre}: {act.tipo_acto}",
                     descripcion=act.texto_original[:500] if act.texto_original else None,
+                    source="watchlist",
                 )
                 db.add(alert)
                 count += 1
@@ -284,6 +292,7 @@ async def generate_alerts_for_date(fecha: date, db: AsyncSession) -> int:
                     tipo=act.tipo_acto,
                     titulo=f"[{act.tipo_acto}] {act.company.nombre}{provincia_str}",
                     descripcion=act.texto_original[:500] if act.texto_original else None,
+                    source="act_type",
                 )
                 db.add(alert)
                 count += 1

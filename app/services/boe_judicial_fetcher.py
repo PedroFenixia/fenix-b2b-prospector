@@ -163,10 +163,14 @@ async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[
                 desc = " ".join(full_text.split())[:3000]
                 item["descripcion"] = desc
 
-                # Try to extract debtor name
+                # Try to extract debtor name and CIF
                 deudor = _extract_deudor(desc)
                 if deudor:
                     item["deudor"] = deudor
+
+                cif = _extract_cif(desc)
+                if cif:
+                    item["deudor_cif"] = cif
 
                 # Try to extract location
                 loc = _extract_localidad(desc)
@@ -194,6 +198,22 @@ def _extract_deudor(text: str) -> Optional[str]:
             name = m.group(1).strip()
             if len(name) > 5 and len(name) < 200:
                 return name
+    return None
+
+
+def _extract_cif(text: str) -> Optional[str]:
+    """Try to extract CIF/NIF from judicial notice text."""
+    patterns = [
+        r"(?:CIF|NIF|C\.I\.F|N\.I\.F)[:\s]+([A-HJ-NP-SUVW]\d{7}[A-Z0-9]?)",
+        r"(?:con\s+)?(?:CIF|NIF)\s+n[uúº]?m?\.?\s*([A-HJ-NP-SUVW]\d{7}[A-Z0-9]?)",
+        r"\b([A-HJ-NP-SUVW]\d{7}[A-Z0-9])\b",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            cif = m.group(1).upper()
+            if len(cif) >= 8:
+                return cif
     return None
 
 

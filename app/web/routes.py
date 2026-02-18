@@ -46,7 +46,16 @@ def _format_eu(value):
     return formatted
 
 
+import re as _re
+
+def _clean_leading_punct(value):
+    """Remove punctuation before first letter."""
+    if not value:
+        return value
+    return _re.sub(r'^[^a-zA-ZÀ-ÿ]+', '', str(value)).strip()
+
 templates.env.filters["eu"] = _format_eu
+templates.env.filters["clean_punct"] = _clean_leading_punct
 
 web_router = APIRouter()
 
@@ -427,12 +436,29 @@ async def company_detail(
         await score_company(company_id, db)
         await db.refresh(company)
 
+    # Auto-infer CNAE from objeto_social if missing
+    if not company.cnae_code and company.objeto_social:
+        from app.utils.cnae import guess_cnae
+        inferred = guess_cnae(company.objeto_social)
+        if inferred:
+            company.cnae_code = inferred
+            company.cnae_inferred = True
+            await db.commit()
+            await db.refresh(company)
+
     watched = await is_watched(company_id, db, user_id=user_id)
     from app.utils.cnae import get_cnae_description
     cnae_desc = get_cnae_description(company.cnae_code) if company.cnae_code else None
+
+    # Find matching opportunities by CNAE
+    matching_opps = {"subsidies": [], "tenders": []}
+    if company.cnae_code:
+        from app.services.opportunity_service import find_opportunities_by_cnae
+        matching_opps = await find_opportunities_by_cnae(company.cnae_code, db)
+
     return templates.TemplateResponse("company_detail.html", _ctx(
         request, company=company, watched=watched, active_page="search",
-        cnae_desc=cnae_desc,
+        cnae_desc=cnae_desc, matching_opps=matching_opps,
     ))
 
 
@@ -613,14 +639,20 @@ async def watchlist_list(
 async def alerts_page(
     request: Request,
     solo_no_leidas: int = 0,
+    source: str = "",
     page: int = 1,
     db: AsyncSession = Depends(get_db),
 ):
     user = get_current_user(request)
     user_id = user["user_id"] if user else None
     unread = await count_unread_alerts(db, user_id=user_id)
-    alerts_result = await get_alerts(db, solo_no_leidas=bool(solo_no_leidas), page=page, user_id=user_id)
+    source_filter = source if source in ("watchlist", "act_type") else None
+    alerts_result = await get_alerts(
+        db, solo_no_leidas=bool(solo_no_leidas), page=page,
+        user_id=user_id, source=source_filter,
+    )
     return templates.TemplateResponse("alerts.html", _ctx(
         request, alerts=alerts_result, unread_count=unread,
-        solo_no_leidas=bool(solo_no_leidas), active_page="watchlist",
+        solo_no_leidas=bool(solo_no_leidas), source=source,
+        active_page="watchlist",
     ))

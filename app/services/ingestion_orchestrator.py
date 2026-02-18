@@ -48,8 +48,8 @@ def _is_off_peak() -> bool:
 
 def _get_speed():
     if _is_off_peak():
-        return {"prefetch": 8, "pause": 0.1, "concurrency": 25}
-    return {"prefetch": 5, "pause": 0.3, "concurrency": 15}
+        return {"prefetch": 4, "pause": 0.5, "concurrency": 8}
+    return {"prefetch": 3, "pause": 1.0, "concurrency": 5}
 
 
 def get_ingestion_status() -> dict:
@@ -287,6 +287,7 @@ async def _store_company(
             existing.capital_social = normalized["capital_social"]
         if normalized["cnae_code"] and not existing.cnae_code:
             existing.cnae_code = normalized["cnae_code"]
+            existing.cnae_inferred = normalized.get("cnae_inferred", True)
         if normalized["fecha_constitucion"] and not existing.fecha_constitucion:
             existing.fecha_constitucion = normalized["fecha_constitucion"]
         if normalized["localidad"] and not existing.localidad:
