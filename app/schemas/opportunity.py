@@ -20,6 +20,7 @@ class SubsidyOut(BaseModel):
     beneficiarios: str | None = None
     sector: str | None = None
     ambito: str | None = None
+    cnae_codes: str | None = None
     archivada: bool = False
     created_at: datetime
 
@@ -40,6 +41,7 @@ class TenderOut(BaseModel):
     importe_estimado: float | None = None
     lugar_ejecucion: str | None = None
     cpv_code: str | None = None
+    cnae_codes: str | None = None
     archivada: bool = False
     created_at: datetime
 

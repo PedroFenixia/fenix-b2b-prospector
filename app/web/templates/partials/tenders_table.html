@@ -21,6 +21,9 @@
                 <td class="py-3 px-4 max-w-md">
                     <p class="text-sm font-medium text-gray-900 truncate">{{ t.titulo[:120] }}</p>
                     <p class="text-[11px] text-gray-400 font-mono mt-0.5">{{ t.expediente }}</p>
+                    {% if t.cnae_codes %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100 mt-0.5">CNAE {{ t.cnae_codes }}</span>
+                    {% endif %}
                 </td>
                 <td class="py-3 px-4 text-sm text-gray-500 max-w-[200px] truncate">{{ t.organismo or '-' }}</td>
                 <td class="py-3 px-4">
