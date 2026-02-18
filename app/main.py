@@ -12,7 +12,7 @@ from app.config import settings
 from app.db.engine import engine
 from app.db.models import Base
 
-_is_production = os.getenv("ENV", "production") == "production"
+_is_production = settings.env == "production"
 
 
 @asynccontextmanager

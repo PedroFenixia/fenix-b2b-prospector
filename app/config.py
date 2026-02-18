@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Ej: socks5://127.0.0.1:1080,socks5://127.0.0.1:1081,http://user:pass@proxy:8080
     enrichment_proxies: str = ""
 
+    # Environment
+    env: str = "production"
+
     # Auth (MUST override via .env in production)
     admin_password: str = ""
     demo_password: str = ""
