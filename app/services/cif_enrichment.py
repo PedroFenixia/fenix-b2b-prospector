@@ -99,39 +99,19 @@ async def _search_infocif(nombre: str, client: httpx.AsyncClient) -> Optional[st
     return None
 
 
-async def _search_google(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Search Google HTML for CIF of a company."""
+async def _search_bing(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
+    """Search Bing HTML for CIF of a company."""
     search_name = _clean_name(nombre)
     query = f'"{search_name}" CIF empresa España'
     try:
         resp = await client.get(
-            "https://www.google.com/search",
-            params={"q": query, "hl": "es", "num": "10"},
-            headers={"User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9"},
-        )
-        if resp.status_code != 200:
-            return None
-        cifs = CIF_RE.findall(resp.text)
-        if cifs:
-            counter = Counter(cifs)
-            return counter.most_common(1)[0][0]
-    except Exception as e:
-        logger.debug(f"Google error for '{nombre}': {e}")
-    return None
-
-
-async def _search_duckduckgo(nombre: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Search DuckDuckGo HTML for CIF of a company (fallback)."""
-    search_name = _clean_name(nombre)
-    query = f'"{search_name}" CIF empresa'
-    try:
-        resp = await client.get(
-            "https://html.duckduckgo.com/html/",
+            "https://www.bing.com/search",
             params={"q": query},
-            headers={"User-Agent": _random_ua()},
+            headers={"User-Agent": _random_ua(), "Accept-Language": "es-ES,es;q=0.9"},
+            timeout=8.0,
         )
-        if resp.status_code == 429 or resp.status_code == 202:
-            logger.warning("DuckDuckGo rate limit")
+        if resp.status_code == 429:
+            logger.warning("Bing rate limit")
             return None
         if resp.status_code != 200:
             return None
@@ -140,7 +120,7 @@ async def _search_duckduckgo(nombre: str, client: httpx.AsyncClient) -> Optional
             counter = Counter(cifs)
             return counter.most_common(1)[0][0]
     except Exception as e:
-        logger.debug(f"DuckDuckGo error for '{nombre}': {e}")
+        logger.debug(f"Bing error for '{nombre}': {e}")
     return None
 
 
@@ -161,16 +141,16 @@ def _get_proxy() -> Optional[str]:
     return proxy
 
 
-async def lookup_cif_by_name(nombre: str, use_google: bool = True) -> Optional[str]:
+async def lookup_cif_by_name(nombre: str, use_bing: bool = True) -> Optional[str]:
     """Search multiple free web sources for a company's CIF.
 
-    Individual mode (use_google=True): Google -> empresia -> infocif -> DuckDuckGo
-    Batch mode (use_google=False): empresia -> infocif (fast, 2 sources max)
+    Individual mode (use_bing=True): Bing -> empresia -> infocif
+    Batch mode (use_bing=False): Bing -> empresia (fast, 2 sources max)
     """
     proxy = _get_proxy()
     async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, proxy=proxy) as client:
-        if use_google:
-            cif = await _search_google(nombre, client)
+        if use_bing:
+            cif = await _search_bing(nombre, client)
             if cif:
                 return cif
 
@@ -182,9 +162,9 @@ async def lookup_cif_by_name(nombre: str, use_google: bool = True) -> Optional[s
         if cif:
             return cif
 
-        # DuckDuckGo only in individual mode (too slow/rate-limited for batch)
-        if use_google:
-            cif = await _search_duckduckgo(nombre, client)
+        # In batch mode, also try Bing as last resort
+        if not use_bing:
+            cif = await _search_bing(nombre, client)
             if cif:
                 return cif
 

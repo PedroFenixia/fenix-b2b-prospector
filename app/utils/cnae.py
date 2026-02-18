@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+from unidecode import unidecode
 
 _DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "cnae_codes.json"
 _CODES: list[dict] | None = None
@@ -65,11 +68,24 @@ def guess_cnae(objeto_social: str) -> str | None:
     """Best-effort CNAE code from objeto_social text. Returns division code or None."""
     if not objeto_social:
         return None
-    text = objeto_social.lower()
+
+    # 1. Try to extract explicit CNAE codes from text (e.g. "6202 / ACTIVIDADES DE...")
+    explicit = re.findall(r"\b(\d{4})\b", objeto_social)
+    if explicit:
+        # Use the first 4-digit code's first 2 digits as division
+        division = explicit[0][:2]
+        # Verify it's a valid CNAE division (01-99)
+        codes = _load()
+        valid_divisions = {item.get("code", "")[:2] for item in codes if item.get("code")}
+        if division in valid_divisions:
+            return division
+
+    # 2. Keyword matching (normalize accents for comparison)
+    text = unidecode(objeto_social).lower()
     best_code = None
     best_count = 0
     for code, keywords in CNAE_KEYWORDS.items():
-        count = sum(1 for kw in keywords if kw in text)
+        count = sum(1 for kw in keywords if unidecode(kw) in text)
         if count > best_count:
             best_count = count
             best_code = code

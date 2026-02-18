@@ -1,7 +1,7 @@
 """Enriquecimiento de contacto: busca web, email y teléfono en la web de la empresa.
 
 Flujo:
-1. Buscar el nombre de la empresa en DuckDuckGo
+1. Buscar el nombre de la empresa en Bing
 2. Identificar la web corporativa (descartando directorios, redes sociales)
 3. Buscar páginas legales (aviso legal, política de privacidad, contacto)
 4. Extraer email y teléfono
@@ -124,17 +124,17 @@ def _extract_phones(text: str) -> list[str]:
     return phones
 
 
-async def _search_duckduckgo(query: str, client: httpx.AsyncClient) -> list[str]:
-    """Search DuckDuckGo HTML and extract result URLs."""
+async def _search_bing(query: str, client: httpx.AsyncClient) -> list[str]:
+    """Search Bing HTML and extract result URLs."""
     try:
         resp = await client.get(
-            "https://html.duckduckgo.com/html/",
+            "https://www.bing.com/search",
             params={"q": query},
-            headers={"User-Agent": UA},
+            headers={"User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9"},
             timeout=10.0,
         )
-        if resp.status_code in (429, 202):
-            logger.warning(f"DuckDuckGo rate limited ({resp.status_code}), backing off")
+        if resp.status_code == 429:
+            logger.warning("Bing rate limited, backing off")
             await asyncio.sleep(15)
             return []
         if resp.status_code != 200:
@@ -142,20 +142,13 @@ async def _search_duckduckgo(query: str, client: httpx.AsyncClient) -> list[str]
 
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
-        for a in soup.select("a.result__a"):
-            href = a.get("href", "")
-            # DuckDuckGo wraps URLs in redirects
-            if "uddg=" in href:
-                from urllib.parse import parse_qs, urlparse as up
-                parsed = up(href)
-                qs = parse_qs(parsed.query)
-                if "uddg" in qs:
-                    href = qs["uddg"][0]
-            if href.startswith("http"):
-                urls.append(href)
+        for li in soup.select("li.b_algo"):
+            a = li.select_one("h2 a")
+            if a and a.get("href", "").startswith("http"):
+                urls.append(a["href"])
         return urls[:10]
     except Exception as e:
-        logger.warning(f"DuckDuckGo search error: {e}")
+        logger.warning(f"Bing search error: {e}")
         return []
 
 
@@ -217,8 +210,8 @@ async def enrich_company_web(
     result = {"email": None, "telefono": None, "web": None}
     nombre = company.nombre
 
-    # 1. Search DuckDuckGo
-    search_urls = await _search_duckduckgo(f"{nombre} empresa España", client)
+    # 1. Search Bing
+    search_urls = await _search_bing(f"{nombre} empresa España", client)
     if not search_urls:
         return result
 
@@ -340,7 +333,7 @@ async def enrich_batch_web(
             except Exception as e:
                 logger.error(f"[WebEnrich] Error for {company.nombre}: {e}")
 
-            # Rate limit: 3s between companies to avoid DuckDuckGo blocks
+            # Rate limit: 3s between companies to avoid Bing blocks
             await asyncio.sleep(3)
 
     await db.commit()
