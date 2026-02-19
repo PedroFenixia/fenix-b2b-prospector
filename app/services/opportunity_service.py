@@ -5,7 +5,7 @@ import logging
 import math
 from datetime import date
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, literal_column, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Company, JudicialNotice, Subsidy, Tender
@@ -346,17 +346,32 @@ async def archive_expired(db: AsyncSession) -> dict:
 
 
 async def search_conciliacion(filters: ConciliacionFilters, db: AsyncSession) -> dict:
-    """Find subsidies/tenders that match active companies by CNAE + province."""
+    """Find subsidies/tenders that match active companies by CNAE + province.
+
+    Uses SQLite-compatible matching: checks if the company's cnae_code appears
+    within the opportunity's comma-separated cnae_codes field.
+    """
     results: list[dict] = []
 
-    # Helper: build JOIN condition for CNAE array matching + province + active
+    # SQLite-compatible JOIN: match company CNAE against comma-separated list.
+    # Province matching is optional: if the opportunity has a province, also match it.
     def _join_cond(opp_table):
+        tbl = opp_table.__tablename__
+        cnae_match = literal_column(
+            f"(',' || replace({tbl}.cnae_codes, ' ', '') || ',')"
+        ).like(
+            literal_column("('%,' || companies.cnae_code || ',%')")
+        )
+        provincia_match = or_(
+            opp_table.provincia.is_(None),
+            opp_table.provincia == "",
+            Company.provincia == opp_table.provincia,
+        )
         return (
-            (Company.cnae_code == func.any_(
-                func.string_to_array(func.replace(opp_table.cnae_codes, " ", ""), ",")
-            ))
-            & (Company.provincia == opp_table.provincia)
+            cnae_match
+            & provincia_match
             & (Company.estado == "activa")
+            & (Company.cnae_code.isnot(None))
         )
 
     # --- Subsidies ---
@@ -368,8 +383,6 @@ async def search_conciliacion(filters: ConciliacionFilters, db: AsyncSession) ->
                 Subsidy.archivada == False,
                 Subsidy.cnae_codes.isnot(None),
                 Subsidy.cnae_codes != "",
-                Subsidy.provincia.isnot(None),
-                Subsidy.provincia != "",
             )
             .group_by(Subsidy.id)
         )
@@ -392,8 +405,6 @@ async def search_conciliacion(filters: ConciliacionFilters, db: AsyncSession) ->
                 Tender.archivada == False,
                 Tender.cnae_codes.isnot(None),
                 Tender.cnae_codes != "",
-                Tender.provincia.isnot(None),
-                Tender.provincia != "",
             )
             .group_by(Tender.id)
         )
@@ -433,12 +444,17 @@ async def get_conciliacion_companies(opp_type: str, opp_id: int, db: AsyncSessio
     if not opp or not opp.cnae_codes or not opp.provincia:
         return []
 
+    # Parse comma-separated CNAE codes and build OR conditions for SQLite
+    codes = [c.strip() for c in opp.cnae_codes.replace(" ", "").split(",") if c.strip()]
+    if not codes:
+        return []
+
+    cnae_conditions = [Company.cnae_code == code for code in codes]
+
     q = (
         select(Company)
         .where(
-            Company.cnae_code == func.any_(
-                func.string_to_array(func.replace(opp.cnae_codes, " ", ""), ",")
-            ),
+            or_(*cnae_conditions),
             Company.provincia == opp.provincia,
             Company.estado == "activa",
         )
