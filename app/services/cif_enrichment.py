@@ -100,26 +100,51 @@ _OBJ_RE = re.compile(
 
 
 async def _search_ddg(nombre: str) -> Optional[str]:
-    """Search DuckDuckGo HTML for CIF of a company using curl."""
-    search_name = _clean_name(nombre)
-    query = f'"{search_name}" CIF empresa España'
-    url = f"https://html.duckduckgo.com/html/?{urlencode({'q': query})}"
-    try:
-        html = await _curl_fetch(url, timeout=10)
-        if not html:
-            return None
-        cifs = CIF_RE.findall(html)
-        if cifs:
-            counter = Counter(cifs)
-            return counter.most_common(1)[0][0]
-    except Exception as e:
-        logger.debug(f"DDG error for '{nombre}': {e}")
+    """Search DuckDuckGo HTML for CIF of a company using curl.
+
+    Tries two queries: exact name match, then cleaned name with CIF keyword.
+    """
+    queries = [
+        f'"{_clean_name_full(nombre)}" CIF',
+        f'{_clean_name_full(nombre)} CIF NIF empresa',
+    ]
+    for query in queries:
+        url = f"https://html.duckduckgo.com/html/?{urlencode({'q': query})}"
+        try:
+            html = await _curl_fetch(url, timeout=10)
+            if not html:
+                continue
+            cifs = CIF_RE.findall(html)
+            if cifs:
+                counter = Counter(cifs)
+                return counter.most_common(1)[0][0]
+        except Exception as e:
+            logger.debug(f"DDG error for '{nombre}': {e}")
+        await asyncio.sleep(1)
     return None
+
+
+def _clean_name_full(nombre: str) -> str:
+    """Remove ALL legal form variants from company name."""
+    cleaned = nombre.strip()
+    # Remove long-form suffixes first, then abbreviations
+    for suffix in [
+        "SOCIEDAD LIMITADA UNIPERSONAL", "SOCIEDAD LIMITADA LABORAL",
+        "SOCIEDAD LIMITADA PROFESIONAL", "SOCIEDAD LIMITADA NUEVA EMPRESA",
+        "SOCIEDAD LIMITADA", "SOCIEDAD ANONIMA", "SOCIEDAD COOPERATIVA",
+        "SOCIEDAD COMANDITARIA", "SOCIEDAD COLECTIVA", "COMUNIDAD DE BIENES",
+        "SLU", "SLL", "SLP", "SLNE", "SAU", "SL", "SA", "SC", "SCOOP", "CB",
+    ]:
+        cleaned = re.sub(
+            rf"\b{re.escape(suffix)}\b\.?\s*$", "", cleaned, flags=re.IGNORECASE
+        ).strip()
+    cleaned = cleaned.rstrip(".,- ")
+    return cleaned
 
 
 def _slug_from_name(nombre: str) -> str:
     """Convert company name to URL slug for direct lookup."""
-    clean = _clean_name(nombre)
+    clean = _clean_name_full(nombre)
     slug = unidecode(clean).upper().replace(" ", "-")
     slug = re.sub(r"[^A-Z0-9\-]", "", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
