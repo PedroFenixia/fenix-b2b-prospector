@@ -9,65 +9,18 @@
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Empresas vigiladas</h1>
             <p class="text-gray-500 mt-1 text-sm">Recibe alertas cuando tus empresas tengan actividad nueva en el BORME</p>
         </div>
-        {% if unread_count > 0 %}
-        <a href="/watchlist/alerts" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition shadow-sm">
-            <span class="inline-flex items-center justify-center w-5 h-5 bg-white text-brand-500 rounded-full text-xs font-bold">{{ unread_count }}</span>
-            Ver alertas
-        </a>
-        {% else %}
-        <a href="/watchlist/alerts" class="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
-            Ver alertas
-        </a>
-        {% endif %}
-    </div>
-
-    <!-- Alertas por tipo de acto -->
-    <div class="card p-5">
-        <h2 class="text-lg font-bold text-gray-900 mb-1">Alertas por tipo de acto</h2>
-        <p class="text-gray-500 text-xs mb-4">Recibe alertas cuando <strong>cualquier empresa</strong> publique un acto de este tipo</p>
-
-        <!-- Suscripciones activas -->
-        <div id="act-type-list" class="space-y-2 mb-4">
-            {% for atw in act_type_watches %}
-            <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2" id="atw-{{ atw.id }}">
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-100 text-brand-700 text-xs font-semibold">{{ atw.tipo_acto }}</span>
-                    {% if atw.filtro_provincia %}
-                    <span class="text-gray-400 text-xs">{{ atw.filtro_provincia }}</span>
-                    {% else %}
-                    <span class="text-gray-400 text-xs">Todas las provincias</span>
-                    {% endif %}
-                </div>
-                <button onclick="removeActTypeWatch({{ atw.id }})" class="text-red-400 hover:text-red-600 text-xs font-medium transition">Eliminar</button>
-            </div>
-            {% endfor %}
-            {% if not act_type_watches %}
-            <p class="text-gray-400 text-xs" id="atw-empty">No tienes suscripciones activas</p>
+        <div class="flex gap-2">
+            {% if unread_count > 0 %}
+            <a href="/watchlist/alerts" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition shadow-sm">
+                <span class="inline-flex items-center justify-center w-5 h-5 bg-white text-brand-500 rounded-full text-xs font-bold">{{ unread_count }}</span>
+                Ver alertas
+            </a>
+            {% else %}
+            <a href="/watchlist/alerts" class="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                Ver alertas
+            </a>
             {% endif %}
         </div>
-
-        <!-- Formulario añadir -->
-        <form id="act-type-form" class="flex flex-wrap items-end gap-3" onsubmit="addActTypeWatch(event)">
-            <div class="flex-1 min-w-[200px]">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Tipo de acto</label>
-                <select name="tipo_acto" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
-                    <option value="">Seleccionar...</option>
-                    {% for tipo in act_types %}
-                    <option value="{{ tipo }}">{{ tipo }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="min-w-[180px]">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Provincia (opcional)</label>
-                <select name="filtro_provincia" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
-                    <option value="">Todas</option>
-                    {% for p in provinces %}
-                    <option value="{{ p.nombre }}">{{ p.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-600 transition">Añadir</button>
-        </form>
     </div>
 
     <!-- Watchlist Table -->
@@ -77,70 +30,4 @@
         <div class="text-center py-12 text-gray-400 text-sm">Cargando...</div>
     </div>
 </div>
-
-<script>
-async function addActTypeWatch(e) {
-    e.preventDefault();
-    const form = e.target;
-    const tipo_acto = form.tipo_acto.value;
-    const filtro_provincia = form.filtro_provincia.value || null;
-    if (!tipo_acto) return;
-
-    let resp, data;
-    try {
-        resp = await fetch('/api/watchlist/act-types', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({tipo_acto, filtro_provincia}),
-        });
-        data = await resp.json();
-    } catch(err) {
-        alert('Error de conexion. Intentalo de nuevo.');
-        return;
-    }
-    if (data.ok) {
-        // Add to list
-        const list = document.getElementById('act-type-list');
-        const empty = document.getElementById('atw-empty');
-        if (empty) empty.remove();
-
-        const prov = filtro_provincia || 'Todas las provincias';
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2';
-        div.id = 'atw-' + data.id;
-        var inner = document.createElement('div');
-        inner.className = 'flex items-center gap-2';
-        var span1 = document.createElement('span');
-        span1.className = 'inline-flex items-center px-2 py-0.5 rounded-md bg-brand-100 text-brand-700 text-xs font-semibold';
-        span1.textContent = tipo_acto;
-        var span2 = document.createElement('span');
-        span2.className = 'text-gray-400 text-xs';
-        span2.textContent = prov;
-        inner.appendChild(span1); inner.appendChild(span2);
-        var btnDel = document.createElement('button');
-        btnDel.className = 'text-red-400 hover:text-red-600 text-xs font-medium transition';
-        btnDel.textContent = 'Eliminar';
-        btnDel.onclick = function() { removeActTypeWatch(data.id); };
-        div.appendChild(inner); div.appendChild(btnDel);
-        list.appendChild(div);
-        form.reset();
-    } else {
-        alert(data.error || 'Error al crear suscripción');
-    }
-}
-
-async function removeActTypeWatch(id) {
-    const resp = await fetch('/api/watchlist/act-types/' + id, {method: 'DELETE'});
-    const data = await resp.json();
-    if (data.ok) {
-        const el = document.getElementById('atw-' + id);
-        if (el) el.remove();
-        // Check if list is empty
-        const list = document.getElementById('act-type-list');
-        if (!list.querySelector('[id^="atw-"]')) {
-            list.innerHTML = '<p class="text-gray-400 text-xs" id="atw-empty">No tienes suscripciones activas</p>';
-        }
-    }
-}
-</script>
 {% endblock %}
