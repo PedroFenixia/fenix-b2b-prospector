@@ -156,3 +156,18 @@ async def count_missing_cif(db: AsyncSession) -> dict:
         "without_cif": without_cif,
         "coverage_pct": round((with_cif or 0) / total * 100, 1) if total else 0,
     }
+
+
+async def count_cif_enrichable_filtered(db: AsyncSession, filters: dict) -> int:
+    """Count companies matching filters that still need CIF enrichment."""
+    MAX_INTENTOS = 2
+    conditions = [Company.cif.is_(None), Company.cif_intentos < MAX_INTENTOS]
+    if filters.get("provincia"):
+        conditions.append(Company.provincia == filters["provincia"])
+    if filters.get("cnae_code"):
+        conditions.append(Company.cnae_code.startswith(filters["cnae_code"]))
+    if filters.get("forma_juridica"):
+        conditions.append(Company.forma_juridica == filters["forma_juridica"])
+    if filters.get("estado"):
+        conditions.append(Company.estado == filters["estado"])
+    return await db.scalar(select(func.count(Company.id)).where(*conditions)) or 0

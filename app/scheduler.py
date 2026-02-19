@@ -263,6 +263,89 @@ async def enrichment_cif():
     return stats
 
 
+async def enrichment_cif_filtered(filters: dict):
+    """Batch CIF enrichment for companies matching specific filters.
+
+    Reuses the same _cif_running/_cif_stop/_cif_stats state as enrichment_cif().
+    """
+    global _cif_running, _cif_stop
+    if _cif_running:
+        logger.info("[CIF Batch Filtered] Already running, skipping")
+        return
+    _cif_running = True
+    _cif_stop = False
+
+    from sqlalchemy import select, func as f
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.cif_enrichment import lookup_cif_by_name
+
+    stats = _cif_stats
+    stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
+
+    MAX_INTENTOS = 2
+    max_companies = filters.get("max_companies", 500)
+
+    try:
+        async with async_session() as db:
+            conditions = [Company.cif.is_(None), Company.cif_intentos < MAX_INTENTOS]
+            if filters.get("provincia"):
+                conditions.append(Company.provincia == filters["provincia"])
+            if filters.get("cnae_code"):
+                conditions.append(Company.cnae_code.startswith(filters["cnae_code"]))
+            if filters.get("forma_juridica"):
+                conditions.append(Company.forma_juridica == filters["forma_juridica"])
+            if filters.get("estado"):
+                conditions.append(Company.estado == filters["estado"])
+
+            total = await db.scalar(select(f.count(Company.id)).where(*conditions)) or 0
+            total = min(total, max_companies)
+            stats["total"] = total
+            logger.info(f"[CIF Batch Filtered] {total} companies matching filters")
+
+            if total == 0:
+                return stats
+
+            processed = 0
+            while not _cif_stop and processed < max_companies:
+                companies = (await db.scalars(
+                    select(Company).where(*conditions)
+                    .order_by(Company.fecha_ultima_publicacion.desc())
+                    .limit(100)
+                )).all()
+                if not companies:
+                    break
+                for c in companies:
+                    if _cif_stop or processed >= max_companies:
+                        break
+                    processed += 1
+                    stats["attempted"] += 1
+                    stats["current_company"] = c.nombre[:60]
+                    c.cif_intentos = (c.cif_intentos or 0) + 1
+                    try:
+                        cif = await lookup_cif_by_name(c.nombre, use_google=False)
+                        if cif:
+                            c.cif = cif
+                            stats["found"] += 1
+                        await asyncio.sleep(random.uniform(1.0, 2.5))
+                    except Exception as e:
+                        stats["errors"] += 1
+                        logger.warning(f"[CIF Batch Filtered] Error {c.nombre}: {e}")
+                        await asyncio.sleep(random.uniform(2, 5))
+                await db.commit()
+                logger.info(f"[CIF Batch Filtered] {stats['attempted']}/{total}, found: {stats['found']}")
+
+        logger.info(f"[CIF Batch Filtered] {'Stopped' if _cif_stop else 'Completed'}: {stats}")
+    except Exception as e:
+        logger.error(f"[CIF Batch Filtered] Fatal error: {e}")
+    finally:
+        stats["current_company"] = ""
+        stats["_last_phase"] = "done" if not _cif_stop else "stopped"
+        _cif_running = False
+        _cif_stop = False
+    return stats
+
+
 async def enrichment_web():
     """Batch web/contact enrichment for all active companies without web.
 

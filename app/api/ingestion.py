@@ -121,6 +121,42 @@ async def enrich_cif(
     }
 
 
+@router.post("/enrich-cif-filtered")
+async def enrich_cif_filtered(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger filtered CIF enrichment for companies matching criteria."""
+    err = _require_admin(request)
+    if err:
+        return err
+    from app.scheduler import enrichment_cif_filtered, is_cif_running
+    from app.services.cif_enrichment import count_cif_enrichable_filtered
+
+    if is_cif_running():
+        return {"error": "El enriquecimiento CIF ya esta en ejecucion"}
+
+    body = await request.json()
+    filters = {
+        "provincia": body.get("provincia"),
+        "cnae_code": body.get("cnae_code"),
+        "forma_juridica": body.get("forma_juridica"),
+        "estado": body.get("estado", "activa"),
+        "max_companies": min(int(body.get("max_companies", 500)), 5000),
+    }
+
+    count = await count_cif_enrichable_filtered(db, filters)
+    if count == 0:
+        return {"error": "No hay empresas que coincidan con los filtros"}
+
+    background_tasks.add_task(enrichment_cif_filtered, filters=filters)
+    return {
+        "message": f"Enriquecimiento CIF iniciado ({count} empresas)",
+        "matching_count": count,
+    }
+
+
 @router.post("/enrich-web")
 async def enrich_web(
     request: Request,

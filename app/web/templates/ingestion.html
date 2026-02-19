@@ -94,9 +94,50 @@
                 <span class="text-xs text-gray-400">Cargando...</span>
             </div>
         </div>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Provincia</label>
+                <select id="cif-filter-provincia" title="Provincia" class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none min-w-[160px]">
+                    <option value="">Todas</option>
+                    {% for p in provinces %}
+                    <option value="{{ p.name }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">CNAE</label>
+                <input type="text" id="cif-filter-cnae" placeholder="Ej: 62, 4771..."
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-[130px]">
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Forma jur&iacute;dica</label>
+                <select id="cif-filter-forma" title="Forma juridica" class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                    <option value="">Todas</option>
+                    <option value="SL">SL</option>
+                    <option value="SLU">SLU</option>
+                    <option value="SA">SA</option>
+                    <option value="SAU">SAU</option>
+                    <option value="SLL">SLL</option>
+                    <option value="SC">SC</option>
+                    <option value="SCOOP">SCOOP</option>
+                    <option value="CB">CB</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">M&aacute;x empresas</label>
+                <input type="number" id="cif-filter-max" value="500" min="1" max="5000" title="Maximo empresas"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-[100px]">
+            </div>
+        </div>
+
         <div class="flex flex-wrap items-center gap-3">
-            <button type="button" id="btn-enrich-cif" onclick="startCifEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+            <button type="button" id="btn-enrich-cif" onclick="startCifFiltered()" class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
                 Enriquecer CIF
+            </button>
+            <button type="button" id="btn-enrich-cif-all" onclick="startCifEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Todas (sin filtro)
             </button>
             <button type="button" id="btn-stop-cif" onclick="stopCifEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
                 Parar
@@ -405,10 +446,39 @@ async function startCifEnrichment() {
         const data = await resp.json();
         if (data.error) {
             statusEl.textContent = data.error;
-            // If already running, still show progress bar and start polling
             _showRunning('cif');
             if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
             _pollStatus();
+            return;
+        }
+        statusEl.textContent = data.message;
+        _showRunning('cif');
+        if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
+    } catch(e) { statusEl.textContent = 'Error: ' + e.message; }
+}
+
+async function startCifFiltered() {
+    const statusEl = document.getElementById('cif-enrich-status');
+    const filters = {
+        provincia: document.getElementById('cif-filter-provincia').value || undefined,
+        cnae_code: document.getElementById('cif-filter-cnae').value.trim() || undefined,
+        forma_juridica: document.getElementById('cif-filter-forma').value || undefined,
+        max_companies: parseInt(document.getElementById('cif-filter-max').value) || 500,
+    };
+    try {
+        const resp = await fetch('/api/ingestion/enrich-cif-filtered', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(filters),
+        });
+        const data = await resp.json();
+        if (data.error) {
+            statusEl.textContent = data.error;
+            if (data.error.includes('en ejecucion')) {
+                _showRunning('cif');
+                if (!_cifPollTimer) _cifPollTimer = setInterval(_pollStatus, 3000);
+                _pollStatus();
+            }
             return;
         }
         statusEl.textContent = data.message;
