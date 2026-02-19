@@ -348,7 +348,7 @@ async def admin_users_page(request: Request, db: AsyncSession = Depends(get_db))
         return RedirectResponse(url="/", status_code=302)
     from sqlalchemy import select
     from app.db.models import User
-    result = await db.scalars(select(User).order_by(User.created_at.desc()))
+    result = await db.scalars(select(User).order_by(User.nombre.asc()))
     users = result.all()
     return templates.TemplateResponse("admin_users.html", _ctx(
         request, users=users, active_page="admin",

@@ -157,9 +157,9 @@ async def _curl_fetch(url: str, timeout: int = 10) -> Optional[str]:
     return None
 
 
-async def _search_brave(query: str, client: httpx.AsyncClient = None) -> list[str]:
-    """Search Brave Search and extract result URLs using curl."""
-    url = f"https://search.brave.com/search?{urlencode({'q': query})}"
+async def _search_ddg(query: str, client: httpx.AsyncClient = None) -> list[str]:
+    """Search DuckDuckGo HTML and extract result URLs using curl."""
+    url = f"https://html.duckduckgo.com/html/?{urlencode({'q': query})}"
     try:
         html = await _curl_fetch(url)
         if not html:
@@ -167,15 +167,20 @@ async def _search_brave(query: str, client: httpx.AsyncClient = None) -> list[st
 
         soup = BeautifulSoup(html, "html.parser")
         urls = []
-        # Extract all external links from search results
-        for a in soup.find_all("a", href=True):
+        for a in soup.find_all("a", class_="result__a", href=True):
             href = a["href"]
-            if href.startswith("http") and "brave.com" not in href and "search" not in href[:30]:
+            if href.startswith("http") and "duckduckgo.com" not in href:
                 if href not in urls:
                     urls.append(href)
+        if not urls:
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if href.startswith("http") and "duckduckgo.com" not in href and "search" not in href[:30]:
+                    if href not in urls:
+                        urls.append(href)
         return urls[:10]
     except Exception as e:
-        logger.warning(f"Brave search error: {e}")
+        logger.warning(f"DDG search error: {e}")
         return []
 
 
@@ -238,7 +243,7 @@ async def enrich_company_web(
     nombre = company.nombre
 
     # 1. Search Brave
-    search_urls = await _search_brave(f"{nombre} empresa España", client)
+    search_urls = await _search_ddg(f"{nombre} empresa España", client)
     if not search_urls:
         return result
 
