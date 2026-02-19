@@ -476,8 +476,10 @@ async def ingestion_page(request: Request, db: AsyncSession = Depends(get_db)):
     recent = await db.scalars(
         select(IngestionLog).order_by(IngestionLog.fecha_borme.desc()).limit(30)
     )
+    provinces = get_all_provinces()
     return templates.TemplateResponse("ingestion.html", _ctx(
-        request, status=status, recent_jobs=recent.all(), active_page="ingestion",
+        request, status=status, recent_jobs=recent.all(),
+        provinces=provinces, active_page="ingestion",
     ))
 
 

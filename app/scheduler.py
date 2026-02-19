@@ -355,6 +355,102 @@ async def enrichment_web():
     return stats
 
 
+async def enrichment_web_filtered(filters: dict):
+    """Batch web/contact enrichment for companies matching specific filters.
+
+    Reuses the same _web_running/_web_stop/_web_stats state as enrichment_web().
+    """
+    global _web_running, _web_stop
+    if _web_running:
+        logger.info("[Web Batch Filtered] Already running, skipping")
+        return
+    _web_running = True
+    _web_stop = False
+
+    from sqlalchemy import select, func as f
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.web_enrichment import enrich_company_web
+    import httpx
+
+    stats = _web_stats
+    stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
+
+    MAX_INTENTOS = 2
+    max_companies = filters.get("max_companies", 500)
+
+    try:
+        async with async_session() as db:
+            conditions = [Company.web.is_(None), Company.web_intentos < MAX_INTENTOS]
+            if filters.get("estado"):
+                conditions.append(Company.estado == filters["estado"])
+            if filters.get("provincia"):
+                conditions.append(Company.provincia == filters["provincia"])
+            if filters.get("cnae_code"):
+                conditions.append(Company.cnae_code.startswith(filters["cnae_code"]))
+            if filters.get("forma_juridica"):
+                conditions.append(Company.forma_juridica == filters["forma_juridica"])
+
+            total = await db.scalar(select(f.count(Company.id)).where(*conditions)) or 0
+            total = min(total, max_companies)
+            stats["total"] = total
+            logger.info(f"[Web Batch Filtered] {total} companies matching filters")
+
+            if total == 0:
+                return stats
+
+            consecutive_errors = 0
+            processed = 0
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                while not _web_stop and processed < max_companies:
+                    companies = (await db.scalars(
+                        select(Company).where(*conditions)
+                        .order_by(Company.fecha_ultima_publicacion.desc())
+                        .limit(50)
+                    )).all()
+                    if not companies:
+                        break
+                    for c in companies:
+                        if _web_stop or processed >= max_companies:
+                            break
+                        processed += 1
+                        stats["attempted"] += 1
+                        stats["current_company"] = c.nombre[:60]
+                        c.web_intentos = (c.web_intentos or 0) + 1
+                        try:
+                            r = await enrich_company_web(c, client)
+                            if r["web"]:
+                                c.web = r["web"]
+                                stats["found"] += 1
+                                consecutive_errors = 0
+                            if r["email"]:
+                                c.email = r["email"]
+                            if r["telefono"]:
+                                c.telefono = r["telefono"]
+                            await asyncio.sleep(random.uniform(2.0, 4.0))
+                        except Exception as e:
+                            stats["errors"] += 1
+                            consecutive_errors += 1
+                            logger.warning(f"[Web Batch Filtered] Error {c.nombre}: {e}")
+                            if consecutive_errors >= 5:
+                                await asyncio.sleep(30)
+                                consecutive_errors = 0
+                            else:
+                                await asyncio.sleep(random.uniform(3, 6))
+                    await db.commit()
+                    logger.info(f"[Web Batch Filtered] {stats['attempted']}/{total}, found: {stats['found']}")
+
+        logger.info(f"[Web Batch Filtered] {'Stopped' if _web_stop else 'Completed'}: {stats}")
+    except Exception as e:
+        logger.error(f"[Web Batch Filtered] Fatal error: {e}")
+    finally:
+        stats["current_company"] = ""
+        stats["_last_phase"] = "done" if not _web_stop else "stopped"
+        _web_running = False
+        _web_stop = False
+    return stats
+
+
 def is_enrichment_running() -> bool:
     return _cif_running or _web_running
 

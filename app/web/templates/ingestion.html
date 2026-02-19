@@ -129,9 +129,50 @@
                 <span class="text-xs text-gray-400">Cargando...</span>
             </div>
         </div>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Provincia</label>
+                <select id="web-filter-provincia" title="Provincia" class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none min-w-[160px]">
+                    <option value="">Todas</option>
+                    {% for p in provinces %}
+                    <option value="{{ p.name }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">CNAE</label>
+                <input type="text" id="web-filter-cnae" placeholder="Ej: 62, 4771..."
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-[130px]">
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Forma jur&iacute;dica</label>
+                <select id="web-filter-forma" title="Forma juridica" class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                    <option value="">Todas</option>
+                    <option value="SL">SL</option>
+                    <option value="SLU">SLU</option>
+                    <option value="SA">SA</option>
+                    <option value="SAU">SAU</option>
+                    <option value="SLL">SLL</option>
+                    <option value="SC">SC</option>
+                    <option value="SCOOP">SCOOP</option>
+                    <option value="CB">CB</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">M&aacute;x empresas</label>
+                <input type="number" id="web-filter-max" value="500" min="1" max="5000" title="Maximo empresas"
+                       class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none w-[100px]">
+            </div>
+        </div>
+
         <div class="flex flex-wrap items-center gap-3">
-            <button type="button" id="btn-enrich-web" onclick="startWebEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+            <button type="button" id="btn-enrich-web" onclick="startWebFiltered()" class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
                 Enriquecer Contacto
+            </button>
+            <button type="button" id="btn-enrich-web-all" onclick="startWebEnrichment()" class="px-4 py-2 bg-gray-800 text-white rounded-xl hover:bg-gray-900 text-sm font-semibold transition shadow-sm">
+                Todas (sin filtro)
             </button>
             <button type="button" id="btn-stop-web" onclick="stopWebEnrichment()" class="hidden px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm font-semibold transition shadow-sm">
                 Parar
@@ -288,6 +329,8 @@ let _webPollTimer = null;
 function _showRunning(type) {
     document.getElementById('btn-enrich-' + type).disabled = true;
     document.getElementById('btn-enrich-' + type).classList.add('opacity-50');
+    const allBtn = document.getElementById('btn-enrich-' + type + '-all');
+    if (allBtn) { allBtn.disabled = true; allBtn.classList.add('opacity-50'); }
     document.getElementById('btn-stop-' + type).classList.remove('hidden');
     document.getElementById(type + '-progress-wrap').classList.remove('hidden');
 }
@@ -295,6 +338,8 @@ function _showRunning(type) {
 function _showIdle(type) {
     document.getElementById('btn-enrich-' + type).disabled = false;
     document.getElementById('btn-enrich-' + type).classList.remove('opacity-50');
+    const allBtn = document.getElementById('btn-enrich-' + type + '-all');
+    if (allBtn) { allBtn.disabled = false; allBtn.classList.remove('opacity-50'); }
     document.getElementById('btn-stop-' + type).classList.add('hidden');
     setTimeout(() => document.getElementById(type + '-progress-wrap').classList.add('hidden'), 2000);
 }
@@ -389,10 +434,39 @@ async function startWebEnrichment() {
         const data = await resp.json();
         if (data.error) {
             statusEl.textContent = data.error;
-            // If already running, still show progress bar and start polling
             _showRunning('web');
             if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
             _pollStatus();
+            return;
+        }
+        statusEl.textContent = data.message;
+        _showRunning('web');
+        if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
+    } catch(e) { statusEl.textContent = 'Error: ' + e.message; }
+}
+
+async function startWebFiltered() {
+    const statusEl = document.getElementById('web-enrich-status');
+    const filters = {
+        provincia: document.getElementById('web-filter-provincia').value || undefined,
+        cnae_code: document.getElementById('web-filter-cnae').value.trim() || undefined,
+        forma_juridica: document.getElementById('web-filter-forma').value || undefined,
+        max_companies: parseInt(document.getElementById('web-filter-max').value) || 500,
+    };
+    try {
+        const resp = await fetch('/api/ingestion/enrich-web-filtered', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(filters),
+        });
+        const data = await resp.json();
+        if (data.error) {
+            statusEl.textContent = data.error;
+            if (data.error.includes('en ejecucion')) {
+                _showRunning('web');
+                if (!_webPollTimer) _webPollTimer = setInterval(_pollStatus, 3000);
+                _pollStatus();
+            }
             return;
         }
         statusEl.textContent = data.message;

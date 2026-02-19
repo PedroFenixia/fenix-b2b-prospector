@@ -144,6 +144,42 @@ async def enrich_web(
     }
 
 
+@router.post("/enrich-web-filtered")
+async def enrich_web_filtered(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger filtered web/contact enrichment for companies matching criteria."""
+    err = _require_admin(request)
+    if err:
+        return err
+    from app.scheduler import enrichment_web_filtered, is_web_running
+    from app.services.web_enrichment import count_enrichable_filtered
+
+    if is_web_running():
+        return {"error": "El enriquecimiento web ya esta en ejecucion"}
+
+    body = await request.json()
+    filters = {
+        "provincia": body.get("provincia"),
+        "cnae_code": body.get("cnae_code"),
+        "forma_juridica": body.get("forma_juridica"),
+        "estado": body.get("estado", "activa"),
+        "max_companies": min(int(body.get("max_companies", 500)), 5000),
+    }
+
+    count = await count_enrichable_filtered(db, filters)
+    if count == 0:
+        return {"error": "No hay empresas que coincidan con los filtros"}
+
+    background_tasks.add_task(enrichment_web_filtered, filters=filters)
+    return {
+        "message": f"Enriquecimiento iniciado ({count} empresas)",
+        "matching_count": count,
+    }
+
+
 @router.get("/cif-stats")
 async def cif_stats(db: AsyncSession = Depends(get_db)):
     """Get CIF coverage statistics."""

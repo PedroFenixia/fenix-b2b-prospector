@@ -1,17 +1,19 @@
-"""Enriquecimiento de contacto: busca web, email y teléfono en la web de la empresa.
+"""Enriquecimiento de contacto: busca web, email y telefono en la web de la empresa.
 
-Flujo:
-1. Buscar el nombre de la empresa en Bing
-2. Identificar la web corporativa (descartando directorios, redes sociales)
-3. Buscar páginas legales (aviso legal, política de privacidad, contacto)
-4. Extraer email y teléfono
-5. Verificar que el nombre coincide (sin forma jurídica, case-insensitive)
+Flujo mejorado:
+1. Multi-busqueda en DuckDuckGo (2-4 queries en cascada)
+2. Probar hasta 3 URLs corporativas (no solo la primera)
+3. Verificar nombre con matching flexible por tokens
+4. Rastrear hasta 5 paginas legales/contacto (priorizando contacto)
+5. Extraer de texto, mailto:, tel:, meta tags y JSON-LD
+6. Filtrar emails con lista de dominios spam
 
-Nota: La búsqueda de CIF se hace por separado en cif_enrichment.py.
+Nota: La busqueda de CIF se hace por separado en cif_enrichment.py.
 """
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import random
 import re
@@ -30,19 +32,18 @@ logger = logging.getLogger(__name__)
 
 # --- Regex patterns ---
 
-# Email
 EMAIL_RE = re.compile(
     r"\b([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\b"
 )
 
-# Teléfono español: +34 o prefijo, 9 dígitos
+# Telefono espanol: +34 o prefijo, 9 digitos
 PHONE_RE = re.compile(
     r"(?:\+34[\s.\-]?)?(\d[\s.\-]?\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3})\b"
     r"|(?:\+34[\s.\-]?)?(\d{3}[\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{2})\b"
     r"|(?:\+34[\s.\-]?)?(\d{3}[\s.\-]?\d{3}[\s.\-]?\d{3})\b"
 )
 
-# Formas jurídicas a eliminar para comparación de nombres
+# Formas juridicas a eliminar para comparacion de nombres
 LEGAL_FORMS = re.compile(
     r"\b(S\.?L\.?L?\.?|S\.?A\.?|S\.?C\.?|S\.?COOP\.?|S\.?L\.?U\.?|"
     r"S\.?A\.?U\.?|S\.?L\.?P\.?|SOCIEDAD LIMITADA|SOCIEDAD ANONIMA|"
@@ -50,32 +51,55 @@ LEGAL_FORMS = re.compile(
     re.IGNORECASE,
 )
 
-# Dominios a descartar en resultados de búsqueda
+# Sufijos de formas juridicas para limpiar queries de busqueda
+_LEGAL_SUFFIXES = ["SL", "SLL", "SA", "SLU", "SAU", "SLNE", "SC", "SLP", "COOP", "CB"]
+
+# Dominios a descartar en resultados de busqueda
 SKIP_DOMAINS = {
     "facebook.com", "twitter.com", "linkedin.com", "instagram.com",
     "youtube.com", "tiktok.com", "wikipedia.org", "infocif.es",
     "einforma.com", "empresia.es", "axesor.es", "eleconomista.es",
     "expansion.com", "google.com", "bing.com", "amazon.com",
-    "registradores.org", "boe.es", "libreborme.net",
+    "registradores.org", "boe.es", "libreborme.net", "x.com",
+    "paginasamarillas.es", "yelp.es", "tripadvisor.es",
 }
 
-# Paths de páginas legales donde suele estar el CIF
+# Dominios de email a ignorar (third-party, tracking, etc.)
+SKIP_EMAIL_DOMAINS = {
+    "sentry.io", "googletagmanager.com", "google-analytics.com",
+    "cookiebot.com", "cookieyes.com", "iubenda.com", "onetrust.com",
+    "wordpress.org", "wordpress.com", "w3.org", "schema.org",
+    "example.com", "test.com", "gravatar.com", "cloudflare.com",
+    "wixpress.com", "squarespace.com", "mailchimp.com",
+}
+
+# Prefijos de email a ignorar
+SKIP_EMAIL_PREFIXES = [
+    "noreply", "no-reply", "no_reply", "mailer-daemon", "mailer",
+    "postmaster", "tracking", "analytics", "unsubscribe", "bounce",
+    "donotreply", "notifications", "newsletter", "wordpress",
+]
+
+# Paths de paginas legales/contacto
 LEGAL_PATHS = [
+    "contacto", "contact", "contacta",
+    "about", "sobre-nosotros", "quienes-somos", "empresa",
     "aviso-legal", "aviso_legal", "avisolegal",
     "legal", "legal-notice",
     "politica-de-privacidad", "politica-privacidad", "privacidad", "privacy",
     "terminos", "condiciones", "terms",
-    "contacto", "contact",
-    "about", "sobre-nosotros", "quienes-somos",
     "imprint", "impressum",
 ]
 
-# User-Agent realista
-UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+]
 
+
+# --- Name helpers ---
 
 def _normalize_name(name: str) -> str:
     """Normalize company name for comparison: remove legal form, accents, case."""
@@ -86,15 +110,47 @@ def _normalize_name(name: str) -> str:
     return name
 
 
-def _names_match(borme_name: str, web_name: str) -> bool:
-    """Check if names match (one contains the other after normalization)."""
-    n1 = _normalize_name(borme_name)
-    n2 = _normalize_name(web_name)
-    if not n1 or not n2:
-        return False
-    # Exact or one contains the other
-    return n1 == n2 or n1 in n2 or n2 in n1
+def _clean_search_name(nombre: str) -> str:
+    """Remove legal form suffixes for cleaner search queries."""
+    cleaned = nombre.strip()
+    for suffix in _LEGAL_SUFFIXES:
+        cleaned = re.sub(rf"\b{suffix}\b\.?$", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = cleaned.rstrip(".,- ")
+    return cleaned
 
+
+def _names_match_flexible(borme_name: str, page_text_upper: str) -> bool:
+    """Check if company name appears on page using flexible token matching.
+
+    Strategy: split name into significant tokens (3+ chars), require that
+    the longest token appears AND at least 60% of tokens match.
+    """
+    norm = _normalize_name(borme_name)
+    if not norm:
+        return False
+
+    # Strategy 1: full normalized name appears
+    if norm in page_text_upper:
+        return True
+
+    # Strategy 2: token overlap
+    tokens = [t for t in norm.split() if len(t) >= 3]
+    if not tokens:
+        # Name is very short, try substring
+        return norm in page_text_upper
+
+    # Longest/most distinctive token MUST appear
+    longest = max(tokens, key=len)
+    if longest not in page_text_upper:
+        return False
+
+    # At least 60% of significant tokens must appear
+    matches = sum(1 for t in tokens if t in page_text_upper)
+    ratio = matches / len(tokens)
+    return ratio >= 0.6
+
+
+# --- Phone/email helpers ---
 
 def _clean_phone(match: re.Match) -> str:
     """Extract clean phone number from regex match."""
@@ -107,16 +163,17 @@ def _clean_phone(match: re.Match) -> str:
     return ""
 
 
-def _extract_emails(text: str) -> list[str]:
+def _extract_emails_text(text: str) -> list[str]:
+    """Extract emails from plain text."""
     emails = EMAIL_RE.findall(text)
-    # Filter out image/file emails
     return [
         e for e in emails
         if not any(e.endswith(ext) for ext in [".png", ".jpg", ".gif", ".svg", ".webp"])
     ]
 
 
-def _extract_phones(text: str) -> list[str]:
+def _extract_phones_text(text: str) -> list[str]:
+    """Extract phone numbers from plain text."""
     phones = []
     for m in PHONE_RE.finditer(text):
         clean = _clean_phone(m)
@@ -125,13 +182,101 @@ def _extract_phones(text: str) -> list[str]:
     return phones
 
 
-_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-]
+def _extract_from_html(html: str) -> tuple[list[str], list[str]]:
+    """Extract emails and phones from HTML: text + attributes + structured data."""
+    soup = BeautifulSoup(html, "html.parser")
+    emails: list[str] = []
+    phones: list[str] = []
 
+    # 1. From text content
+    text = soup.get_text(separator=" ", strip=True)
+    emails.extend(_extract_emails_text(text))
+    phones.extend(_extract_phones_text(text))
+
+    # 2. From mailto: and tel: links
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("mailto:"):
+            email = href.replace("mailto:", "").split("?")[0].strip()
+            if EMAIL_RE.match(email) and email not in emails:
+                emails.append(email)
+        elif href.startswith("tel:"):
+            raw_phone = href.replace("tel:", "").strip()
+            digits = re.sub(r"[^\d]", "", raw_phone)
+            if digits.startswith("34"):
+                digits = digits[2:]
+            if len(digits) == 9 and digits[0] in "6789" and digits not in phones:
+                phones.append(digits)
+
+    # 3. From meta tags
+    for meta in soup.find_all("meta"):
+        content = meta.get("content", "")
+        if "@" in content:
+            for match in EMAIL_RE.findall(content):
+                if match not in emails:
+                    emails.append(match)
+
+    # 4. From JSON-LD structured data
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = _json.loads(script.string or "")
+            _extract_from_jsonld(data, emails, phones)
+        except (_json.JSONDecodeError, TypeError):
+            pass
+
+    return emails, phones
+
+
+def _extract_from_jsonld(data, emails: list, phones: list):
+    """Extract contact info from JSON-LD structured data."""
+    if isinstance(data, dict):
+        for key in ("email", "contactEmail"):
+            val = data.get(key, "")
+            if val and EMAIL_RE.match(val) and val not in emails:
+                emails.append(val)
+        for key in ("telephone", "phone", "contactPhone"):
+            val = data.get(key, "")
+            if val:
+                digits = re.sub(r"[^\d]", "", val)
+                if digits.startswith("34"):
+                    digits = digits[2:]
+                if len(digits) == 9 and digits[0] in "6789" and digits not in phones:
+                    phones.append(digits)
+        for v in data.values():
+            if isinstance(v, (dict, list)):
+                _extract_from_jsonld(v, emails, phones)
+    elif isinstance(data, list):
+        for item in data:
+            _extract_from_jsonld(item, emails, phones)
+
+
+def _filter_emails(emails: list[str], company_domain: str | None = None) -> list[str]:
+    """Filter out non-company emails (tracking, third-party, etc.)."""
+    filtered = []
+    for email in emails:
+        lower = email.lower()
+        domain = lower.split("@")[-1]
+
+        # Skip known third-party domains
+        if any(skip in domain for skip in SKIP_EMAIL_DOMAINS):
+            continue
+        # Skip noreply-type prefixes
+        if any(lower.startswith(skip) for skip in SKIP_EMAIL_PREFIXES):
+            continue
+
+        filtered.append(email)
+
+    # Prioritize emails from the company domain
+    if company_domain:
+        cd = company_domain.lower()
+        company_emails = [e for e in filtered if cd in e.lower()]
+        other_emails = [e for e in filtered if cd not in e.lower()]
+        return company_emails + other_emails
+
+    return filtered
+
+
+# --- HTTP / Search ---
 
 async def _curl_fetch(url: str, timeout: int = 10) -> Optional[str]:
     """Fetch URL using curl subprocess (bypasses TLS fingerprinting)."""
@@ -157,7 +302,7 @@ async def _curl_fetch(url: str, timeout: int = 10) -> Optional[str]:
     return None
 
 
-async def _search_ddg(query: str, client: httpx.AsyncClient = None) -> list[str]:
+async def _search_ddg(query: str) -> list[str]:
     """Search DuckDuckGo HTML and extract result URLs using curl."""
     url = f"https://html.duckduckgo.com/html/?{urlencode({'q': query})}"
     try:
@@ -184,32 +329,69 @@ async def _search_ddg(query: str, client: httpx.AsyncClient = None) -> list[str]
         return []
 
 
+async def _search_multi_strategy(nombre: str, provincia: str | None = None) -> list[str]:
+    """Try multiple search queries in cascade until we get 3+ corporate URLs."""
+    clean = _clean_search_name(nombre)
+
+    strategies = [
+        f'"{clean}" empresa España',
+        f'{clean} web oficial contacto',
+    ]
+    if provincia:
+        strategies.append(f'{clean} {provincia} empresa')
+    strategies.append(f'site:.es {clean}')
+
+    all_urls: list[str] = []
+    for query in strategies:
+        urls = await _search_ddg(query.strip())
+        corporate = [u for u in urls if _is_corporate_url(u)]
+        all_urls.extend(u for u in corporate if u not in all_urls)
+        if len(all_urls) >= 3:
+            break
+        await asyncio.sleep(random.uniform(1.0, 2.0))
+
+    return all_urls
+
+
 def _is_corporate_url(url: str) -> bool:
     """Check if URL looks like a corporate website (not a directory/social)."""
     domain = urlparse(url).netloc.lower().replace("www.", "")
     return not any(skip in domain for skip in SKIP_DOMAINS)
 
 
-async def _fetch_page(url: str, client: httpx.AsyncClient) -> Optional[str]:
-    """Fetch a web page, return HTML text or None."""
-    try:
-        resp = await client.get(
-            url,
-            headers={"User-Agent": UA},
-            follow_redirects=True,
-            timeout=10.0,
-        )
-        if resp.status_code == 200 and "text/html" in resp.headers.get("content-type", ""):
-            return resp.text
-    except Exception:
-        pass
+async def _fetch_page(url: str, client: httpx.AsyncClient = None) -> Optional[str]:
+    """Fetch a web page. Tries curl first (better TLS fingerprint), falls back to httpx."""
+    # Try curl first
+    html = await _curl_fetch(url, timeout=10)
+    if html:
+        lower = html[:500].lower()
+        if "<html" in lower or "<head" in lower or "<!doctype" in lower:
+            return html
+
+    # Fallback to httpx
+    if client:
+        try:
+            resp = await client.get(
+                url,
+                headers={"User-Agent": random.choice(_USER_AGENTS)},
+                follow_redirects=True,
+                timeout=10.0,
+            )
+            if resp.status_code == 200 and "text/html" in resp.headers.get("content-type", ""):
+                return resp.text
+        except Exception:
+            pass
+
     return None
 
 
 def _find_legal_links(html: str, base_url: str) -> list[str]:
-    """Find links to legal/privacy/contact pages."""
+    """Find links to legal/privacy/contact pages, prioritizing contact."""
     soup = BeautifulSoup(html, "html.parser")
-    legal_urls = []
+    contact_urls: list[str] = []
+    other_urls: list[str] = []
+
+    contact_keywords = {"contacto", "contact", "contacta", "about", "quienes-somos", "sobre-nosotros", "empresa"}
 
     for a in soup.find_all("a", href=True):
         href = a["href"].lower()
@@ -220,15 +402,21 @@ def _find_legal_links(html: str, base_url: str) -> list[str]:
             for kw in [
                 "aviso legal", "legal", "privacidad", "privacy",
                 "contacto", "contact", "condiciones", "términos",
+                "sobre nosotros", "quienes somos", "empresa",
             ]
         )
         if is_legal:
             full_url = urljoin(base_url, a["href"])
-            if full_url not in legal_urls:
-                legal_urls.append(full_url)
+            is_contact = any(kw in href or kw in text for kw in contact_keywords)
+            if is_contact and full_url not in contact_urls:
+                contact_urls.append(full_url)
+            elif full_url not in contact_urls and full_url not in other_urls:
+                other_urls.append(full_url)
 
-    return legal_urls[:5]
+    return (contact_urls + other_urls)[:5]
 
+
+# --- Main enrichment function ---
 
 async def enrich_company_web(
     company: Company,
@@ -236,97 +424,97 @@ async def enrich_company_web(
 ) -> dict:
     """Enrich a single company with contact data (web, email, phone).
 
-    CIF lookup is handled separately by cif_enrichment.py.
+    Improved flow:
+    1. Multi-strategy search (2-4 queries)
+    2. Try up to 3 corporate URLs
+    3. Flexible name matching (token-based)
+    4. Fetch up to 5 legal/contact pages
+    5. Rich extraction (text + HTML attrs + JSON-LD)
+    6. Smart email filtering
+
     Returns dict with keys: email, telefono, web (or None for each).
     """
     result = {"email": None, "telefono": None, "web": None}
     nombre = company.nombre
+    provincia = getattr(company, "provincia", None)
 
-    # 1. Search Brave
-    search_urls = await _search_ddg(f"{nombre} empresa España", client)
+    # 1. Multi-strategy search
+    search_urls = await _search_multi_strategy(nombre, provincia)
     if not search_urls:
         return result
 
-    # 2. Find first corporate URL
+    # 2. Try up to 3 corporate URLs with flexible name matching
     corporate_url = None
-    for url in search_urls:
-        if _is_corporate_url(url):
-            corporate_url = url
+    homepage_html = None
+
+    for candidate_url in search_urls[:3]:
+        html = await _fetch_page(candidate_url, client)
+        if not html:
+            continue
+        page_text_upper = unidecode(
+            BeautifulSoup(html, "html.parser").get_text(separator=" ", strip=True)
+        ).upper()
+        if _names_match_flexible(nombre, page_text_upper):
+            corporate_url = candidate_url
+            homepage_html = html
             break
+        await asyncio.sleep(0.3)
 
-    if not corporate_url:
-        return result
-
-    # 3. Fetch homepage
-    homepage_html = await _fetch_page(corporate_url, client)
-    if not homepage_html:
-        return result
-
-    # 4. Verify the website belongs to this company (name must appear on the page)
-    homepage_text = BeautifulSoup(homepage_html, "html.parser").get_text(separator=" ", strip=True)
-    homepage_text_upper = unidecode(homepage_text).upper()
-    norm_name = _normalize_name(nombre)
-
-    if not norm_name or norm_name[:15] not in homepage_text_upper:
-        logger.info(f"[WebEnrich] {nombre}: web {corporate_url} does not mention company name, skipping")
+    if not corporate_url or not homepage_html:
         return result
 
     # Web confirmed as belonging to the company
     result["web"] = corporate_url
+    company_domain = urlparse(corporate_url).netloc.lower().replace("www.", "")
 
-    # Collect all text to analyze: homepage + contact/legal pages
-    all_texts = [homepage_html]
+    # Collect all HTML pages to analyze
+    all_htmls = [homepage_html]
 
-    # 5. Find and fetch contact/legal pages (max 2 to keep it fast)
+    # 3. Find and fetch contact/legal pages (up to 5, prioritizing contacto)
     legal_links = _find_legal_links(homepage_html, corporate_url)
-    for link in legal_links[:2]:
+    for link in legal_links:
         legal_html = await _fetch_page(link, client)
         if legal_html:
-            all_texts.append(legal_html)
+            all_htmls.append(legal_html)
         await asyncio.sleep(0.3)
 
-    # 6. Extract email and phone from all pages
-    all_emails = []
-    all_phones = []
+    # 4. Extract email and phone from all pages (text + HTML attributes + JSON-LD)
+    all_emails: list[str] = []
+    all_phones: list[str] = []
 
-    for html in all_texts:
-        soup = BeautifulSoup(html, "html.parser")
-        text = soup.get_text(separator=" ", strip=True)
-        all_emails.extend(_extract_emails(text))
-        all_phones.extend(_extract_phones(text))
+    for html in all_htmls:
+        page_emails, page_phones = _extract_from_html(html)
+        all_emails.extend(e for e in page_emails if e not in all_emails)
+        all_phones.extend(p for p in page_phones if p not in all_phones)
 
-    # 7. Best email (prefer info@, contacto@, not noreply@)
-    if all_emails:
-        unique_emails = list(dict.fromkeys(all_emails))
+    # 5. Filter and select best email
+    filtered_emails = _filter_emails(all_emails, company_domain)
+    if filtered_emails:
+        # Prefer info@, contacto@, etc.
         for prefix in ["info", "contacto", "contact", "hola", "admin"]:
-            for email in unique_emails:
+            for email in filtered_emails:
                 if email.lower().startswith(prefix):
                     result["email"] = email
                     break
             if result["email"]:
                 break
         if not result["email"]:
-            for email in unique_emails:
-                if not any(skip in email.lower() for skip in ["noreply", "no-reply", "mailer", "tracking", "analytics"]):
-                    result["email"] = email
-                    break
+            result["email"] = filtered_emails[0]
 
-    # 8. First valid phone
+    # 6. First valid phone
     if all_phones:
         result["telefono"] = all_phones[0]
 
     return result
 
 
+# --- Batch and single enrichment ---
+
 async def enrich_batch_web(
     db: AsyncSession,
     limit: int = 20,
 ) -> dict:
-    """Enrich a batch of companies via web search.
-
-    Returns stats dict.
-    """
-    # Companies without web, CIF, email, or phone - prioritize recent
+    """Enrich a batch of companies via web search. Returns stats dict."""
     companies = (
         await db.scalars(
             select(Company)
@@ -365,7 +553,6 @@ async def enrich_batch_web(
             except Exception as e:
                 logger.error(f"[WebEnrich] Error for {company.nombre}: {e}")
 
-            # Rate limit: 3s between companies to avoid Bing blocks
             await asyncio.sleep(3)
 
     await db.commit()
@@ -408,3 +595,24 @@ async def count_web_coverage(db: AsyncSession) -> dict:
         "with_email": with_email or 0,
         "with_phone": with_phone or 0,
     }
+
+
+async def count_enrichable_filtered(db: AsyncSession, filters: dict) -> int:
+    """Count companies matching filters that can still be enriched."""
+    from sqlalchemy import func as f
+
+    conditions = [
+        Company.web.is_(None),
+        Company.web_intentos < 2,
+    ]
+    if filters.get("estado"):
+        conditions.append(Company.estado == filters["estado"])
+    if filters.get("provincia"):
+        conditions.append(Company.provincia == filters["provincia"])
+    if filters.get("cnae_code"):
+        conditions.append(Company.cnae_code.startswith(filters["cnae_code"]))
+    if filters.get("forma_juridica"):
+        conditions.append(Company.forma_juridica == filters["forma_juridica"])
+
+    count = await db.scalar(select(f.count(Company.id)).where(*conditions))
+    return count or 0
