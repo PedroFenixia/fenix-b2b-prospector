@@ -93,6 +93,39 @@
         </div>
     </div>
 
+    <!-- Alertas recientes -->
+    {% if unread_alerts > 0 %}
+    <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-gray-900">Alertas sin leer</h2>
+            <a href="/watchlist/alerts?solo_no_leidas=1" class="inline-flex items-center gap-1.5 text-xs text-brand-500 hover:text-brand-600 font-semibold">
+                Ver todas ({{ unread_alerts }})
+                <span>&rarr;</span>
+            </a>
+        </div>
+        {% if recent_alerts %}
+        <div class="space-y-2">
+            {% for alert in recent_alerts %}
+            <a href="/companies/{{ alert.company_id }}" class="block hover:bg-[#FAFAF5] rounded-xl p-3 -mx-2 transition border-l-2 border-l-brand-500">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
+                    {% if alert.source == 'act_type' %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-50 text-purple-600 border border-purple-100">Tipo acto</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-50 text-blue-600 border border-blue-100">Vigilancia</span>
+                    {% endif %}
+                    <span class="text-[10px] text-gray-400 font-mono">{{ alert.created_at.strftime('%d/%m %H:%M') }}</span>
+                </div>
+                <p class="text-sm font-medium text-gray-900">{{ alert.titulo }}</p>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-sm">{{ unread_alerts }} alertas sin leer</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if stats.companies_by_forma %}
     <div class="card p-6">
         <h2 class="text-base font-bold text-gray-900 mb-4">Por Forma Jur&iacute;dica</h2>

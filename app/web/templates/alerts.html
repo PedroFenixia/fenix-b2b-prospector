@@ -82,6 +82,45 @@
         </form>
     </div>
 
+    <!-- Act Type Subscriptions Summary -->
+    <div class="card p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-bold text-gray-900">Suscripciones por tipo de acto</h2>
+            <a href="/watchlist" class="text-[11px] text-brand-500 hover:text-brand-600 font-semibold">Gestionar</a>
+        </div>
+        {% if act_type_watches %}
+        <div class="flex flex-wrap gap-2 mb-3">
+            {% for atw in act_type_watches %}
+            <div class="inline-flex items-center gap-1.5 bg-purple-50 border border-purple-100 rounded-lg px-2.5 py-1" id="atw-alert-{{ atw.id }}">
+                <span class="text-xs font-semibold text-purple-700">{{ atw.tipo_acto }}</span>
+                {% if atw.filtro_provincia %}
+                <span class="text-[10px] text-purple-400">{{ atw.filtro_provincia }}</span>
+                {% endif %}
+                <button type="button" onclick="removeActTypeWatch({{ atw.id }})" class="text-purple-300 hover:text-red-500 transition ml-0.5" title="Eliminar">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <!-- Quick add form -->
+        <form id="act-type-form-alerts" class="flex flex-wrap items-end gap-2" onsubmit="addActTypeWatchFromAlerts(event)">
+            <select name="tipo_acto" required title="Tipo de acto" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500">
+                <option value="">Tipo de acto...</option>
+                {% for tipo in act_types %}
+                <option value="{{ tipo }}">{{ tipo }}</option>
+                {% endfor %}
+            </select>
+            <select name="filtro_provincia" title="Provincia" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500">
+                <option value="">Todas provincias</option>
+                {% for p in provinces %}
+                <option value="{{ p.nombre }}">{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-3 py-1.5 bg-purple-500 text-white rounded-lg text-xs font-semibold hover:bg-purple-600 transition">Suscribir</button>
+        </form>
+    </div>
+
     <!-- Alerts List -->
     <div id="alerts-list">
     {% if alerts.total > 0 %}
@@ -190,6 +229,38 @@ async function markRead(alertId, btn) {
 async function markAllRead() {
     const resp = await fetch('/api/watchlist/alerts/read-all', { method: 'POST' });
     if (resp.ok) location.reload();
+}
+
+async function addActTypeWatchFromAlerts(e) {
+    e.preventDefault();
+    const form = e.target;
+    const tipo_acto = form.tipo_acto.value;
+    const filtro_provincia = form.filtro_provincia.value || null;
+    if (!tipo_acto) return;
+    try {
+        const resp = await fetch('/api/watchlist/act-types', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tipo_acto, filtro_provincia}),
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            location.reload();
+        } else {
+            alert(data.error || 'Error al crear suscripcion');
+        }
+    } catch(err) {
+        alert('Error de conexion');
+    }
+}
+
+async function removeActTypeWatch(id) {
+    const resp = await fetch('/api/watchlist/act-types/' + id, {method: 'DELETE'});
+    const data = await resp.json();
+    if (data.ok) {
+        const el = document.getElementById('atw-alert-' + id);
+        if (el) { el.style.transition = 'opacity .2s'; el.style.opacity = '0'; setTimeout(function(){ el.remove(); }, 200); }
+    }
 }
 </script>
 {% endblock %}

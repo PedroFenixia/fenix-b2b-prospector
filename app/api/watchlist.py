@@ -42,9 +42,9 @@ async def api_add_act_type_watch(
         from fastapi.responses import JSONResponse
         return JSONResponse({"error": "Login requerido"}, status_code=401)
 
-    # Check alert limits
+    # Check alert limits (admins bypass)
     user = getattr(request.state, "user", None)
-    if user:
+    if user and user.get("role") != "admin":
         from app.auth import PLAN_LIMITS
         from sqlalchemy import func, select
         from app.db.models import ActTypeWatch
@@ -118,9 +118,9 @@ async def api_add_to_watchlist(
     db: AsyncSession = Depends(get_db),
 ):
     uid = _user_id(request)
-    # Check watchlist limits
+    # Check watchlist limits (admins bypass)
     user = getattr(request.state, "user", None)
-    if user:
+    if user and user.get("role") != "admin":
         from app.auth import PLAN_LIMITS
         from sqlalchemy import func, select
         from app.db.models import Watchlist

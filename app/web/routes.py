@@ -361,8 +361,16 @@ async def admin_users_page(request: Request, db: AsyncSession = Depends(get_db))
 async def index(request: Request, db: AsyncSession = Depends(get_db)):
     from app.api.stats import get_stats
     stats = await get_stats(db)
+    user = get_current_user(request)
+    user_id = user["user_id"] if user else None
+    unread = await count_unread_alerts(db, user_id=user_id)
+    recent_alerts = []
+    if user_id:
+        alerts_result = await get_alerts(db, solo_no_leidas=True, page=1, user_id=user_id, per_page=5)
+        recent_alerts = alerts_result.get("items", [])
     return templates.TemplateResponse("index.html", _ctx(
-        request, stats=stats, active_page="dashboard",
+        request, stats=stats, unread_alerts=unread,
+        recent_alerts=recent_alerts, active_page="dashboard",
     ))
 
 
@@ -715,9 +723,27 @@ async def alerts_page(
         user_id=user_id, source=source_filter,
         fecha_desde=fd, fecha_hasta=fh,
     )
+    act_type_watches = await get_act_type_watches(user_id, db) if user_id else []
+    from app.services.borme_parser import ACT_TYPES
+    provinces = get_all_provinces()
     return templates.TemplateResponse("alerts.html", _ctx(
         request, alerts=alerts_result, unread_count=unread,
         solo_no_leidas=bool(solo_no_leidas), source=source,
         fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        act_type_watches=act_type_watches, act_types=ACT_TYPES,
+        provinces=provinces,
         active_page="watchlist",
     ))
+
+
+@web_router.get("/watchlist/alerts-badge", response_class=HTMLResponse)
+async def alerts_badge(request: Request, db: AsyncSession = Depends(get_db)):
+    """HTMX partial: returns unread alert count badge for nav."""
+    user = get_current_user(request)
+    user_id = user["user_id"] if user else None
+    unread = await count_unread_alerts(db, user_id=user_id)
+    if unread > 0:
+        return HTMLResponse(
+            f'<span class="inline-flex items-center justify-center w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-bold">{unread}</span>'
+        )
+    return HTMLResponse("")
