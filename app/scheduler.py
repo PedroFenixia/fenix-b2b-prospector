@@ -265,7 +265,7 @@ async def enrichment_cif():
     from sqlalchemy import select, func as f
     from app.db.engine import async_session
     from app.db.models import Company
-    from app.services.cif_enrichment import lookup_cif_by_name
+    from app.services.cif_enrichment import lookup_full_by_name
 
     stats = _cif_stats
     stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
@@ -285,8 +285,6 @@ async def enrichment_cif():
                 return stats
 
             while not _cif_stop:
-                # Always get the next untried batch (no offset needed — processed
-                # companies get their intentos incremented so they drop out of the query)
                 companies = (await db.scalars(
                     select(Company).where(*base_filter)
                     .order_by(Company.fecha_ultima_publicacion.desc())
@@ -301,11 +299,16 @@ async def enrichment_cif():
                     stats["current_company"] = c.nombre[:60]
                     c.cif_intentos = (c.cif_intentos or 0) + 1
                     try:
-                        cif = await lookup_cif_by_name(c.nombre, use_google=False)
-                        if cif:
-                            c.cif = cif
+                        result = await lookup_full_by_name(c.nombre)
+                        if result and result.get("cif"):
+                            c.cif = result["cif"]
+                            if result.get("cnae_code") and not c.cnae_code:
+                                c.cnae_code = result["cnae_code"]
+                            if result.get("domicilio") and not c.domicilio:
+                                c.domicilio = result["domicilio"]
+                            if result.get("objeto_social") and not c.objeto_social:
+                                c.objeto_social = result["objeto_social"]
                             stats["found"] += 1
-                        # Short wait — maximize throughput
                         await asyncio.sleep(random.uniform(1.0, 2.5))
                     except Exception as e:
                         stats["errors"] += 1
@@ -340,7 +343,7 @@ async def enrichment_cif_filtered(filters: dict):
     from sqlalchemy import select, func as f
     from app.db.engine import async_session
     from app.db.models import Company
-    from app.services.cif_enrichment import lookup_cif_by_name
+    from app.services.cif_enrichment import lookup_full_by_name
 
     stats = _cif_stats
     stats.update({"total": 0, "attempted": 0, "found": 0, "errors": 0, "current_company": ""})
@@ -385,9 +388,15 @@ async def enrichment_cif_filtered(filters: dict):
                     stats["current_company"] = c.nombre[:60]
                     c.cif_intentos = (c.cif_intentos or 0) + 1
                     try:
-                        cif = await lookup_cif_by_name(c.nombre, use_google=False)
-                        if cif:
-                            c.cif = cif
+                        result = await lookup_full_by_name(c.nombre)
+                        if result and result.get("cif"):
+                            c.cif = result["cif"]
+                            if result.get("cnae_code") and not c.cnae_code:
+                                c.cnae_code = result["cnae_code"]
+                            if result.get("domicilio") and not c.domicilio:
+                                c.domicilio = result["domicilio"]
+                            if result.get("objeto_social") and not c.objeto_social:
+                                c.objeto_social = result["objeto_social"]
                             stats["found"] += 1
                         await asyncio.sleep(random.uniform(1.0, 2.5))
                     except Exception as e:
