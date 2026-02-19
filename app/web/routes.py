@@ -500,8 +500,10 @@ async def ingestion_status_partial(request: Request, db: AsyncSession = Depends(
 
 @web_router.get("/opportunities", response_class=HTMLResponse)
 async def opportunities_page(request: Request):
+    from app.utils.provinces import get_all_provinces
     return templates.TemplateResponse("opportunities.html", _ctx(
         request, active_page="opportunities",
+        provinces=get_all_provinces(),
     ))
 
 
@@ -601,6 +603,49 @@ async def cross_search_results(
         "subsidies": results["subsidies"],
         "tenders": results["tenders"],
         "judicial": results["judicial"],
+    })
+
+
+@web_router.get("/opportunities/conciliacion-results", response_class=HTMLResponse)
+async def conciliacion_results(
+    request: Request,
+    provincia: str | None = None,
+    cnae_code: str | None = None,
+    tipo: str | None = None,
+    q: str | None = None,
+    sort_by: str = "company_count",
+    page: int = 1,
+    per_page: int = 25,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.opportunity import ConciliacionFilters
+    from app.services.opportunity_service import search_conciliacion
+
+    filters = ConciliacionFilters(
+        provincia=provincia or None, cnae_code=cnae_code or None,
+        tipo=tipo or None, q=q or None,
+        sort_by=sort_by, page=page, per_page=per_page,
+    )
+    result = await search_conciliacion(filters, db)
+    return templates.TemplateResponse("partials/conciliacion_table.html", {
+        "request": request,
+        **result,
+    })
+
+
+@web_router.get("/opportunities/conciliacion-companies", response_class=HTMLResponse)
+async def conciliacion_companies(
+    request: Request,
+    opp_type: str = "",
+    opp_id: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.opportunity_service import get_conciliacion_companies
+
+    companies = await get_conciliacion_companies(opp_type, opp_id, db)
+    return templates.TemplateResponse("partials/conciliacion_companies.html", {
+        "request": request,
+        "companies": companies,
     })
 
 

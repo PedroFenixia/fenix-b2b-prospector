@@ -82,3 +82,18 @@ class PaginatedTenders(BaseModel):
     page: int
     pages: int
     per_page: int
+
+
+class ConciliacionFilters(BaseModel):
+    provincia: str | None = None
+    cnae_code: str | None = None
+    tipo: str | None = None  # "subsidies" | "tenders" | None (both)
+    q: str | None = None
+    sort_by: str = "company_count"
+    sort_order: str = "desc"
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=25, ge=1, le=100)
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.per_page

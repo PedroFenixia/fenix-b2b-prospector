@@ -8,8 +8,8 @@ from datetime import date
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import JudicialNotice, Subsidy, Tender
-from app.schemas.opportunity import OpportunityFilters
+from app.db.models import Company, JudicialNotice, Subsidy, Tender
+from app.schemas.opportunity import ConciliacionFilters, OpportunityFilters
 
 logger = logging.getLogger(__name__)
 
@@ -343,3 +343,106 @@ async def archive_expired(db: AsyncSession) -> dict:
         logger.info(f"[Archive] Archived {sub_count} subsidies, {tender_count} tenders (deadline passed)")
 
     return {"subsidies_archived": sub_count, "tenders_archived": tender_count}
+
+
+async def search_conciliacion(filters: ConciliacionFilters, db: AsyncSession) -> dict:
+    """Find subsidies/tenders that match active companies by CNAE + province."""
+    results: list[dict] = []
+
+    # Helper: build JOIN condition for CNAE array matching + province + active
+    def _join_cond(opp_table):
+        return (
+            (Company.cnae_code == func.any_(
+                func.string_to_array(func.replace(opp_table.cnae_codes, " ", ""), ",")
+            ))
+            & (Company.provincia == opp_table.provincia)
+            & (Company.estado == "activa")
+        )
+
+    # --- Subsidies ---
+    if filters.tipo in (None, "subsidies"):
+        sub_q = (
+            select(Subsidy, func.count(Company.id).label("company_count"))
+            .join(Company, _join_cond(Subsidy))
+            .where(
+                Subsidy.archivada == False,
+                Subsidy.cnae_codes.isnot(None),
+                Subsidy.cnae_codes != "",
+                Subsidy.provincia.isnot(None),
+                Subsidy.provincia != "",
+            )
+            .group_by(Subsidy.id)
+        )
+        if filters.provincia:
+            sub_q = sub_q.where(Subsidy.provincia == filters.provincia)
+        if filters.cnae_code:
+            sub_q = sub_q.where(Subsidy.cnae_codes.ilike(f"%{filters.cnae_code}%"))
+        if filters.q:
+            sub_q = sub_q.where(Subsidy.titulo.ilike(f"%{filters.q}%"))
+
+        for row in (await db.execute(sub_q)).all():
+            results.append({"type": "subsidy", "opportunity": row[0], "company_count": row[1]})
+
+    # --- Tenders ---
+    if filters.tipo in (None, "tenders"):
+        tend_q = (
+            select(Tender, func.count(Company.id).label("company_count"))
+            .join(Company, _join_cond(Tender))
+            .where(
+                Tender.archivada == False,
+                Tender.cnae_codes.isnot(None),
+                Tender.cnae_codes != "",
+                Tender.provincia.isnot(None),
+                Tender.provincia != "",
+            )
+            .group_by(Tender.id)
+        )
+        if filters.provincia:
+            tend_q = tend_q.where(Tender.provincia == filters.provincia)
+        if filters.cnae_code:
+            tend_q = tend_q.where(Tender.cnae_codes.ilike(f"%{filters.cnae_code}%"))
+        if filters.q:
+            tend_q = tend_q.where(Tender.titulo.ilike(f"%{filters.q}%"))
+
+        for row in (await db.execute(tend_q)).all():
+            results.append({"type": "tender", "opportunity": row[0], "company_count": row[1]})
+
+    # Sort combined results
+    if filters.sort_by == "fecha_publicacion":
+        results.sort(key=lambda r: r["opportunity"].fecha_publicacion, reverse=(filters.sort_order == "desc"))
+    else:
+        results.sort(key=lambda r: (r["company_count"], r["opportunity"].fecha_publicacion), reverse=True)
+
+    # Paginate
+    total = len(results)
+    pages = max(1, math.ceil(total / filters.per_page))
+    items = results[filters.offset:filters.offset + filters.per_page]
+
+    return {"items": items, "total": total, "page": filters.page, "pages": pages}
+
+
+async def get_conciliacion_companies(opp_type: str, opp_id: int, db: AsyncSession, limit: int = 50) -> list:
+    """Get active companies matching a specific opportunity's CNAE + province."""
+    if opp_type == "subsidy":
+        opp = await db.get(Subsidy, opp_id)
+    elif opp_type == "tender":
+        opp = await db.get(Tender, opp_id)
+    else:
+        return []
+
+    if not opp or not opp.cnae_codes or not opp.provincia:
+        return []
+
+    q = (
+        select(Company)
+        .where(
+            Company.cnae_code == func.any_(
+                func.string_to_array(func.replace(opp.cnae_codes, " ", ""), ",")
+            ),
+            Company.provincia == opp.provincia,
+            Company.estado == "activa",
+        )
+        .order_by(Company.nombre.asc())
+        .limit(limit)
+    )
+    return (await db.scalars(q)).all()

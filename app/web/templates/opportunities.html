@@ -28,6 +28,10 @@
                     class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-700 transition">
                 Anuncios Judiciales
             </button>
+            <button onclick="switchTab('conciliacion')" id="tab-conciliacion"
+                    class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-700 transition">
+                Conciliacion
+            </button>
         </nav>
     </div>
 
@@ -202,6 +206,51 @@
             <div class="text-center py-12 text-gray-400 text-sm">Haz clic en Buscar para cargar anuncios judiciales</div>
         </div>
     </div>
+
+    <!-- Conciliacion Tab -->
+    <div id="panel-conciliacion" class="hidden">
+        <div class="card p-6 mb-4">
+            <h2 class="text-base font-bold text-gray-900 mb-1">Conciliacion Oportunidades &rarr; Empresas</h2>
+            <p class="text-gray-400 text-xs mb-4">Cruza subvenciones y licitaciones con empresas activas del mismo CNAE y provincia</p>
+            <form id="conc-form" class="flex gap-3 items-end flex-wrap" onsubmit="return false">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Provincia</label>
+                    <select name="provincia"
+                            class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                        <option value="">Todas</option>
+                        {% for p in provinces %}
+                        <option value="{{ p.nombre }}">{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Tipo</label>
+                    <select name="tipo"
+                            class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                        <option value="">Todos</option>
+                        <option value="subsidies">Subvenciones</option>
+                        <option value="tenders">Licitaciones</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Buscar</label>
+                    <input type="text" name="q" placeholder="Titulo..."
+                           class="rounded-xl border-gray-200 shadow-sm text-sm px-3 py-2 border w-48 bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <button type="button" id="conc-search-btn"
+                        class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold transition"
+                        hx-get="/opportunities/conciliacion-results"
+                        hx-target="#conciliacion-results"
+                        hx-include="#conc-form">
+                    Buscar
+                </button>
+                <input type="hidden" name="page" value="1" id="conc-page-input">
+            </form>
+        </div>
+        <div id="conciliacion-results">
+            <div class="text-center py-12 text-gray-400 text-sm">Selecciona filtros y haz clic en Buscar para cruzar oportunidades con empresas.</div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -210,6 +259,7 @@ function switchTab(tab) {
     document.getElementById('panel-subsidies').classList.toggle('hidden', tab !== 'subsidies');
     document.getElementById('panel-tenders').classList.toggle('hidden', tab !== 'tenders');
     document.getElementById('panel-judicial').classList.toggle('hidden', tab !== 'judicial');
+    document.getElementById('panel-conciliacion').classList.toggle('hidden', tab !== 'conciliacion');
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('border-brand-500', 'text-brand-500');
@@ -232,6 +282,10 @@ function goToTenderPage(page) {
 function goToJudicialPage(page) {
     document.getElementById('judicial-page-input').value = page;
     htmx.trigger(document.querySelector('[hx-get="/opportunities/judicial-results"]'), 'click');
+}
+function goToConcPage(page) {
+    document.getElementById('conc-page-input').value = page;
+    htmx.trigger(document.getElementById('conc-search-btn'), 'click');
 }
 
 /* --- Fetch / Update buttons --- */

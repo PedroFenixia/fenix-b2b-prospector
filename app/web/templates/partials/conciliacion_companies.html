@@ -1,0 +1,33 @@
+{% if companies %}
+<div>
+    <p class="text-xs font-semibold text-gray-500 mb-2">{{ companies|length }} empresa{{ 's' if companies|length != 1 else '' }} activa{{ 's' if companies|length != 1 else '' }}</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {% for c in companies %}
+        <a href="/companies/{{ c.id }}" class="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition border border-transparent hover:border-gray-200 hover:shadow-sm">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">{{ c.nombre }}</p>
+                <p class="text-[11px] text-gray-400">
+                    {{ c.provincia or '' }}
+                    {% if c.cnae_code %} &middot; CNAE {{ c.cnae_code }}{% endif %}
+                    {% if c.cif %} &middot; {{ c.cif }}{% endif %}
+                </p>
+            </div>
+            {% if c.score_solvencia is not none %}
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full
+                {% if c.score_solvencia >= 76 %}bg-green-50 text-green-700
+                {% elif c.score_solvencia >= 51 %}bg-blue-50 text-blue-700
+                {% elif c.score_solvencia >= 26 %}bg-amber-50 text-amber-700
+                {% else %}bg-red-50 text-red-700{% endif %}">
+                {{ c.score_solvencia }}
+            </span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% if companies|length >= 50 %}
+    <p class="text-xs text-gray-300 mt-2">Mostrando las primeras 50 empresas.</p>
+    {% endif %}
+</div>
+{% else %}
+<p class="text-sm text-gray-400">No se encontraron empresas coincidentes.</p>
+{% endif %}
