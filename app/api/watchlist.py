@@ -23,65 +23,7 @@ def _user_id(request: Request) -> int | None:
     return user["user_id"] if user else None
 
 
-class WatchlistBody(BaseModel):
-    notas: str | None = None
-    tipos_acto: list[str] | None = None
-
-
-@router.post("/{company_id}")
-async def api_add_to_watchlist(
-    company_id: int,
-    request: Request,
-    body: WatchlistBody = WatchlistBody(),
-    db: AsyncSession = Depends(get_db),
-):
-    uid = _user_id(request)
-    # Check watchlist limits
-    user = getattr(request.state, "user", None)
-    if user:
-        from app.auth import PLAN_LIMITS
-        from sqlalchemy import func, select
-        from app.db.models import Watchlist
-        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
-        if limits["watchlist"] != -1:
-            count = await db.scalar(
-                select(func.count(Watchlist.id)).where(Watchlist.user_id == uid)
-            ) or 0
-            if count >= limits["watchlist"]:
-                from fastapi.responses import JSONResponse
-                return JSONResponse(
-                    {"error": f"Limite de {limits['watchlist']} empresas en vigilancia alcanzado. Mejora tu plan."},
-                    status_code=403,
-                )
-    entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto, user_id=uid)
-    return {"ok": True, "id": entry.id}
-
-
-@router.delete("/{company_id}")
-async def api_remove_from_watchlist(
-    company_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    uid = _user_id(request)
-    removed = await remove_from_watchlist(company_id, db, user_id=uid)
-    return {"ok": removed}
-
-
-@router.post("/alerts/{alert_id}/read")
-async def api_mark_alert_read(
-    alert_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    ok = await mark_alert_read(alert_id, db)
-    return {"ok": ok}
-
-
-@router.post("/alerts/read-all")
-async def api_mark_all_read(request: Request, db: AsyncSession = Depends(get_db)):
-    uid = _user_id(request)
-    count = await mark_all_read(db, user_id=uid)
-    return {"ok": True, "count": count}
+# ── Fixed-path routes FIRST (before /{company_id} to avoid route conflicts) ──
 
 
 class ActTypeWatchBody(BaseModel):
@@ -141,4 +83,68 @@ async def api_remove_act_type_watch(
         from fastapi.responses import JSONResponse
         return JSONResponse({"error": "Login requerido"}, status_code=401)
     removed = await remove_act_type_watch(watch_id, uid, db)
+    return {"ok": removed}
+
+
+@router.post("/alerts/{alert_id}/read")
+async def api_mark_alert_read(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    ok = await mark_alert_read(alert_id, db)
+    return {"ok": ok}
+
+
+@router.post("/alerts/read-all")
+async def api_mark_all_read(request: Request, db: AsyncSession = Depends(get_db)):
+    uid = _user_id(request)
+    count = await mark_all_read(db, user_id=uid)
+    return {"ok": True, "count": count}
+
+
+# ── Parameterized routes LAST ──
+
+
+class WatchlistBody(BaseModel):
+    notas: str | None = None
+    tipos_acto: list[str] | None = None
+
+
+@router.post("/{company_id}")
+async def api_add_to_watchlist(
+    company_id: int,
+    request: Request,
+    body: WatchlistBody = WatchlistBody(),
+    db: AsyncSession = Depends(get_db),
+):
+    uid = _user_id(request)
+    # Check watchlist limits
+    user = getattr(request.state, "user", None)
+    if user:
+        from app.auth import PLAN_LIMITS
+        from sqlalchemy import func, select
+        from app.db.models import Watchlist
+        limits = PLAN_LIMITS.get(user.get("plan", "free"), PLAN_LIMITS["free"])
+        if limits["watchlist"] != -1:
+            count = await db.scalar(
+                select(func.count(Watchlist.id)).where(Watchlist.user_id == uid)
+            ) or 0
+            if count >= limits["watchlist"]:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    {"error": f"Limite de {limits['watchlist']} empresas en vigilancia alcanzado. Mejora tu plan."},
+                    status_code=403,
+                )
+    entry = await add_to_watchlist(company_id, body.notas, db, body.tipos_acto, user_id=uid)
+    return {"ok": True, "id": entry.id}
+
+
+@router.delete("/{company_id}")
+async def api_remove_from_watchlist(
+    company_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    uid = _user_id(request)
+    removed = await remove_from_watchlist(company_id, db, user_id=uid)
     return {"ok": removed}
