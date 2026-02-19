@@ -84,8 +84,8 @@ def _name_matches(nombre: str, page_text: str) -> bool:
     return found >= len(tokens) * 0.6
 
 
-# CNAE regex: "CNAE" followed by optional separator and 4-digit code
-_CNAE_RE = re.compile(r"CNAE[\s:\-]*(?:20\d{2}\s*[:\-]?\s*)?(\d{4})")
+# CNAE regex: "CNAE" + optional "2009:" prefix + 4-digit code
+_CNAE_RE = re.compile(r"CNAE[\s:\-]*(?:20\d{2}[\s:\-]+)(\d{4})")
 # Address patterns
 _ADDR_RE = re.compile(
     r"(?:Domicilio|Dirección|Domicilio Social|Dirección Social|Calle|C/|Avda\.|Avenida|Plaza)"
