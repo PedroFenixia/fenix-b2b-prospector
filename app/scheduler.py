@@ -26,8 +26,9 @@ async def daily_borme_update():
     except Exception as e:
         logger.error(f"[Scheduler] BORME ingestion failed for {yesterday}: {e}")
 
-    # Auto-enrich CIF for new companies from today's ingestion
+    # Auto-enrich CIF and contact data for new companies
     await _enrich_new_companies_cif(yesterday)
+    await _enrich_new_companies_web(yesterday)
 
 
 async def _enrich_new_companies_cif(fecha: date):
@@ -68,6 +69,58 @@ async def _enrich_new_companies_cif(fecha: date):
 
         await db.commit()
         logger.info(f"[CIF] Enriched {enriched}/{len(new_companies)} companies for {fecha}")
+
+
+async def _enrich_new_companies_web(fecha: date):
+    """Enrich web/email/phone for companies first published on a given date."""
+    import httpx
+    from sqlalchemy import select
+
+    from app.db.engine import async_session
+    from app.db.models import Company
+    from app.services.web_enrichment import enrich_company_web
+
+    MAX_ENRICH = 200  # Cap per day to avoid rate limits
+
+    async with async_session() as db:
+        new_companies = (
+            await db.scalars(
+                select(Company).where(
+                    Company.fecha_primera_publicacion == fecha,
+                    Company.web.is_(None),
+                    Company.web_intentos < 2,
+                    Company.estado == "activa",
+                ).limit(MAX_ENRICH)
+            )
+        ).all()
+
+        if not new_companies:
+            logger.info(f"[Web] No new companies without contact for {fecha}")
+            return
+
+        logger.info(f"[Web] Enriching {len(new_companies)} new companies from {fecha}")
+        enriched = 0
+        errors = 0
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            for company in new_companies:
+                try:
+                    result = await enrich_company_web(company, client)
+                    if result.get("web") or result.get("email"):
+                        company.web = result.get("web")
+                        company.email = result.get("email")
+                        company.telefono = result.get("telefono")
+                        enriched += 1
+                    company.web_intentos = (company.web_intentos or 0) + 1
+                    await asyncio.sleep(2)  # Rate limit
+                except Exception as e:
+                    errors += 1
+                    company.web_intentos = (company.web_intentos or 0) + 1
+                    logger.warning(f"[Web] Error for {company.nombre}: {e}")
+                    if errors >= 5:
+                        break
+
+        await db.commit()
+        logger.info(f"[Web] Enriched {enriched}/{len(new_companies)} companies for {fecha}")
 
 
 async def daily_boe_subsidies_update():
