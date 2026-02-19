@@ -210,21 +210,31 @@ async def _fetch_item_detail(client: httpx.AsyncClient, item: dict) -> Optional[
 
 # Keyword -> CNAE code mapping for subsidies
 _SUBSIDY_CNAE_MAP = [
-    (["agricultur", "agrari", "ganad", "pesca", "forestal"], "01"),
-    (["industria", "manufactur", "fabricación"], "10"),
-    (["construcción", "edificación", "obra"], "41"),
-    (["transporte", "logística", "movilidad"], "49"),
-    (["turismo", "hostelería", "alojamiento"], "55"),
-    (["tecnología", "digital", "informátic", "software", "TIC"], "62"),
-    (["investigación", "I+D", "innovación", "ciencia"], "72"),
-    (["educación", "formación", "enseñanza"], "85"),
-    (["sanidad", "salud", "sanitari", "médic", "farmac"], "86"),
-    (["energía", "renovable", "eficiencia energética"], "35"),
-    (["comercio", "exportación", "internacionalización"], "46"),
-    (["cultura", "patrimonio", "artístic"], "90"),
-    (["medio ambiente", "residuo", "reciclaje", "sostenib"], "38"),
-    (["empleo", "contratación", "autónomo", "emprendim"], "78"),
-    (["vivienda", "rehabilitación", "accesibilidad"], "41"),
+    (["agricultur", "agrari", "ganad", "pesca", "forestal", "regante", "riego",
+      "acuicultur", "viticul", "olivar", "cereal", "frutal", "horticul"], "01"),
+    (["alimenta", "industria agroaliment", "conserv", "cárnic", "lácteo"], "10"),
+    (["industria", "manufactur", "fabricación", "metalurg", "siderurg"], "24"),
+    (["construcción", "edificación", "obra pública", "infraestructur"], "41"),
+    (["transporte", "logística", "movilidad", "ferroviari", "portuari"], "49"),
+    (["turismo", "hostelería", "alojamiento", "restauración", "hotel"], "55"),
+    (["tecnología", "digital", "informátic", "software", "TIC", "cibersegur",
+      "inteligencia artificial", "telecomunic"], "62"),
+    (["investigación", "I+D", "innovación", "ciencia", "universidad"], "72"),
+    (["educación", "formación", "enseñanza", "escolar", "docente", "FP"], "85"),
+    (["sanidad", "salud", "sanitari", "médic", "farmac", "hospital",
+      "clínic", "asistencial", "sociosanitari"], "86"),
+    (["energía", "renovable", "eficiencia energética", "eólic", "solar",
+      "fotovoltaic", "hidrógeno", "eléctric"], "35"),
+    (["comercio", "exportación", "internacionalización", "minorista"], "46"),
+    (["cultura", "patrimonio", "artístic", "museo", "teatr", "cine"], "90"),
+    (["medio ambiente", "residuo", "reciclaje", "sostenib", "biodiversi",
+      "contaminación", "forestal", "incendio"], "38"),
+    (["empleo", "contratación", "autónomo", "emprendim", "pyme", "PYME"], "78"),
+    (["vivienda", "rehabilitación", "accesibilidad", "urbanis"], "41"),
+    (["seguro", "asegurador", "correduría", "actuari"], "65"),
+    (["inmobiliari", "inmueble", "promotor", "arrendamiento"], "68"),
+    (["deporte", "deportiv", "olímpic"], "93"),
+    (["servicio social", "dependencia", "discapacid", "inclusión"], "88"),
 ]
 
 
@@ -239,6 +249,28 @@ def _detect_cnae_from_text(text: str) -> Optional[str]:
             if cnae not in codes:
                 codes.append(cnae)
     return ",".join(codes) if codes else None
+
+
+async def reclassify_cnae(db) -> dict:
+    """Re-detect CNAE codes for subsidies and tenders that have none."""
+    from app.db.models import Subsidy, Tender
+    from sqlalchemy import select
+
+    updated = {"subsidies": 0, "tenders": 0}
+    for model, key in [(Subsidy, "subsidies"), (Tender, "tenders")]:
+        rows = (await db.scalars(
+            select(model).where(
+                (model.cnae_codes.is_(None)) | (model.cnae_codes == "")
+            )
+        )).all()
+        for row in rows:
+            text = f"{row.titulo or ''} {row.descripcion or ''}"
+            cnae = _detect_cnae_from_text(text)
+            if cnae:
+                row.cnae_codes = cnae
+                updated[key] += 1
+    await db.commit()
+    return updated
 
 
 def _extract_importe(text: str) -> Optional[float]:
