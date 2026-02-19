@@ -400,6 +400,34 @@ class ExportLog(Base):
     )
 
 
+class InboundLead(Base):
+    """Leads entrantes desde las landings de FENIX IA 360."""
+    __tablename__ = "inbound_leads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    company: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    employees: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    product: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    matched_company_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(Text, default="new")  # new, contacted, converted, discarded
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    matched_company: Mapped[Optional[Company]] = relationship()
+
+    __table_args__ = (
+        Index("idx_leads_email", "email"),
+        Index("idx_leads_status", "status"),
+        Index("idx_leads_source", "source"),
+        Index("idx_leads_created", "created_at"),
+    )
+
+
 class ERPConnection(Base):
     """Conexión ERP configurada por el usuario (Odoo, SAP, Holded…)."""
     __tablename__ = "erp_connections"

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -77,6 +78,20 @@ app = FastAPI(
     redoc_url=None if _is_production else "/redoc",
 )
 
+# CORS for landing page forms
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://web1.fenixia360.com",
+        "https://web2.fenixia360.com",
+        "https://web3.fenixia360.com",
+        "https://www.fenixia360.com",
+        "https://fenixia360.com",
+    ],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
 # Session middleware for auth
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key or "dev-only-insecure-key")
 
@@ -101,7 +116,7 @@ app.include_router(web_router)
 # Public paths that don't require auth
 PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/health", "/static/", "/favicon.ico",
                 "/pricing", "/legal/", "/api/billing/webhook", "/api/billing/rc-webhook",
-                "/api/solvency/"]
+                "/api/solvency/", "/api/leads/"]
 
 # Paths accessible without login (Free sin registro) - user data injected if available
 OPEN_PATHS = ["/", "/search", "/companies/", "/opportunities"]

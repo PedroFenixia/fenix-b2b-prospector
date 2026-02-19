@@ -10,6 +10,7 @@ from app.api.watchlist import router as watchlist_router
 from app.api.billing import router as billing_router
 from app.api.solvency import router as solvency_router
 from app.api.erp import router as erp_router
+from app.api.leads import router as leads_router
 
 api_router = APIRouter()
 api_router.include_router(companies_router, prefix="/companies", tags=["companies"])
@@ -22,3 +23,4 @@ api_router.include_router(watchlist_router, prefix="/watchlist", tags=["watchlis
 api_router.include_router(billing_router, prefix="/billing", tags=["billing"])
 api_router.include_router(solvency_router, prefix="/solvency", tags=["solvency"])
 api_router.include_router(erp_router, prefix="/erp", tags=["erp"])
+api_router.include_router(leads_router, prefix="/leads", tags=["leads"])
