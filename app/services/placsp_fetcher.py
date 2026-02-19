@@ -173,6 +173,9 @@ def _parse_entry(entry, atom_ns: str, nsmap: dict) -> Optional[dict]:
     provincia = detect_provincia_from_text(lugar or organismo or "")
     ccaa = provincia_to_ccaa(provincia) if provincia else detect_ccaa_from_text(lugar or organismo or "")
     cnae = cpv_to_cnae(cpv_code) if cpv_code else None
+    if not cnae:
+        from app.services.boe_subsidies_fetcher import _detect_cnae_from_text
+        cnae = _detect_cnae_from_text(f"{titulo} {descripcion or ''}")
 
     return {
         "expediente": expediente,
