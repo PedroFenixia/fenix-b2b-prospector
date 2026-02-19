@@ -53,7 +53,7 @@
     <div id="alerts-list">
     {% if alerts.total > 0 %}
     <div class="space-y-2">
-        {% for alert in alerts.items %}
+        {% for alert in alerts['items'] %}
         <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}">
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
