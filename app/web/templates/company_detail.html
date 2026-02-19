@@ -301,7 +301,7 @@
                         {% endif %}
                         {% endif %}
                     </div>
-                    <span class="text-xs text-gray-400 font-mono">{{ act.fecha_publicacion }}</span>
+                    <span class="text-xs text-gray-400 font-mono">{{ act.fecha_publicacion }}{% if act.created_at %} · {{ act.created_at.strftime('%H:%M') }}{% endif %}</span>
                 </div>
             </div>
             {% endfor %}
