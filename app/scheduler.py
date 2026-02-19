@@ -32,15 +32,14 @@ async def daily_borme_update():
 
 
 async def _enrich_new_companies_cif(fecha: date):
-    """Enrich CIF for companies first published on a given date (new entries only)."""
+    """Enrich CIF + CNAE + address for companies first published on a given date."""
     from sqlalchemy import select
 
     from app.db.engine import async_session
     from app.db.models import Company
-    from app.services.cif_enrichment import lookup_cif_by_name
+    from app.services.cif_enrichment import lookup_full_by_name
 
     async with async_session() as db:
-        # Only companies that appeared for the first time on this date and have no CIF
         new_companies = (
             await db.scalars(
                 select(Company).where(
@@ -56,16 +55,26 @@ async def _enrich_new_companies_cif(fecha: date):
 
         logger.info(f"[CIF] Enriching {len(new_companies)} new companies from {fecha}")
         enriched = 0
+        errors = 0
         for company in new_companies:
             try:
-                cif = await lookup_cif_by_name(company.nombre)
-                if cif:
-                    company.cif = cif
+                result = await lookup_full_by_name(company.nombre)
+                if result and result.get("cif"):
+                    company.cif = result["cif"]
+                    if result.get("cnae_code") and not company.cnae_code:
+                        company.cnae_code = result["cnae_code"]
+                    if result.get("domicilio") and not company.domicilio:
+                        company.domicilio = result["domicilio"]
+                    if result.get("objeto_social") and not company.objeto_social:
+                        company.objeto_social = result["objeto_social"]
                     enriched += 1
+                company.cif_intentos = (company.cif_intentos or 0) + 1
                 await asyncio.sleep(1.5)  # Rate limit
             except Exception as e:
+                errors += 1
                 logger.warning(f"[CIF] Error for {company.nombre}: {e}")
-                break  # Stop on errors (likely rate limit)
+                if errors >= 5:
+                    break
 
         await db.commit()
         logger.info(f"[CIF] Enriched {enriched}/{len(new_companies)} companies for {fecha}")
