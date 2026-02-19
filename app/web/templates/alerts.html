@@ -2,6 +2,11 @@
 {% block title %}Alertas - FENIX Prospector{% endblock %}
 
 {% block content %}
+{# Build date params string for URL construction #}
+{% set dp = '' %}
+{% if fecha_desde %}{% set dp = dp ~ '&fecha_desde=' ~ fecha_desde %}{% endif %}
+{% if fecha_hasta %}{% set dp = dp ~ '&fecha_hasta=' ~ fecha_hasta %}{% endif %}
+
 <div class="space-y-6">
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -22,39 +27,68 @@
     </div>
 
     <!-- Filters -->
-    <div class="flex flex-wrap gap-4">
+    <div class="flex flex-wrap gap-4 items-end">
         <!-- Read/unread filter -->
         <div class="flex gap-2">
-            <a href="/watchlist/alerts{% if source %}?source={{ source }}{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+            <a href="/watchlist/alerts?{% if source %}source={{ source }}{% endif %}{{ dp }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
                 Todas
             </a>
-            <a href="/watchlist/alerts?solo_no_leidas=1{% if source %}&source={{ source }}{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
+            <a href="/watchlist/alerts?solo_no_leidas=1{% if source %}&source={{ source }}{% endif %}{{ dp }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if solo_no_leidas %}bg-brand-500 text-white{% else %}border border-gray-200 text-gray-600 hover:border-brand-500{% endif %}">
                 Sin leer {% if unread_count > 0 %}({{ unread_count }}){% endif %}
             </a>
         </div>
 
-        <span class="border-l border-gray-200"></span>
+        <span class="border-l border-gray-200 h-6"></span>
 
         <!-- Source filter -->
         <div class="flex gap-2">
-            <a href="/watchlist/alerts{% if solo_no_leidas %}?solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not source %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+            <a href="/watchlist/alerts?{% if solo_no_leidas %}solo_no_leidas=1{% endif %}{{ dp }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if not source %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
                 Todas las fuentes
             </a>
-            <a href="/watchlist/alerts?source=watchlist{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'watchlist' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+            <a href="/watchlist/alerts?source=watchlist{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{{ dp }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'watchlist' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
                 Empresas vigiladas
             </a>
-            <a href="/watchlist/alerts?source=act_type{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'act_type' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
+            <a href="/watchlist/alerts?source=act_type{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{{ dp }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition {% if source == 'act_type' %}bg-gray-800 text-white{% else %}border border-gray-200 text-gray-600 hover:border-gray-400{% endif %}">
                 Tipos de acto
             </a>
         </div>
+
+        <span class="border-l border-gray-200 h-6"></span>
+
+        <!-- Date range filter -->
+        <form method="GET" action="/watchlist/alerts" class="flex gap-2 items-end">
+            {% if solo_no_leidas %}<input type="hidden" name="solo_no_leidas" value="1">{% endif %}
+            {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Desde</label>
+                <input type="date" name="fecha_desde" value="{{ fecha_desde }}"
+                       class="rounded-lg border-gray-200 shadow-sm text-xs px-2 py-1.5 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Hasta</label>
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"
+                       class="rounded-lg border-gray-200 shadow-sm text-xs px-2 py-1.5 border bg-[#FAFAF8] focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+            </div>
+            <button type="submit" class="px-3 py-1.5 bg-gray-800 text-white rounded-lg text-xs font-semibold hover:bg-gray-900 transition">Filtrar</button>
+            {% if fecha_desde or fecha_hasta %}
+            <a href="/watchlist/alerts?{% if solo_no_leidas %}solo_no_leidas=1&{% endif %}{% if source %}source={{ source }}{% endif %}"
+               class="px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-xs font-medium hover:border-red-300 hover:text-red-500 transition">Limpiar</a>
+            {% endif %}
+        </form>
     </div>
 
     <!-- Alerts List -->
     <div id="alerts-list">
     {% if alerts.total > 0 %}
+    <p class="text-xs text-gray-400 mb-3">{{ alerts.total }} alerta{{ 's' if alerts.total != 1 else '' }}</p>
     <div class="space-y-2">
         {% for alert in alerts['items'] %}
-        <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}">
+        <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}" id="alert-{{ alert.id }}">
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
@@ -66,7 +100,7 @@
                     {% if not alert.leida %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Nueva</span>
                     {% endif %}
-                    <span class="text-[10px] text-gray-300 font-mono">{{ alert.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                    <span class="text-[11px] text-gray-500 font-mono font-medium">{{ alert.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                 </div>
                 <a href="/companies/{{ alert.company_id }}" class="text-sm font-semibold text-gray-900 hover:text-brand-500 transition mt-1 block">
                     {{ alert.titulo }}
@@ -83,21 +117,50 @@
     </div>
 
     {% if alerts.pages > 1 %}
-    <div class="flex justify-center gap-2 mt-4">
-        {% for p in range(1, alerts.pages + 1) %}
+    <div class="flex justify-center items-center gap-1 mt-4">
+        {# Previous button #}
+        {% if alerts.page > 1 %}
+        <a href="/watchlist/alerts?page={{ alerts.page - 1 }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
+           class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">&larr;</a>
+        {% endif %}
+
+        {# Windowed page numbers #}
+        {% set window = 2 %}
+        {% set start = [1, alerts.page - window] | max %}
+        {% set end = [alerts.pages, alerts.page + window] | min %}
+
+        {% if start > 1 %}
+        <a href="/watchlist/alerts?page=1{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
+           class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">1</a>
+        {% if start > 2 %}<span class="px-1 text-gray-300">...</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start, end + 1) %}
         {% if p == alerts.page %}
         <span class="px-3 py-1.5 bg-brand-500 text-white rounded-lg text-sm font-semibold">{{ p }}</span>
         {% else %}
-        <a href="/watchlist/alerts?page={{ p }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}"
+        <a href="/watchlist/alerts?page={{ p }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ p }}</a>
         {% endif %}
         {% endfor %}
+
+        {% if end < alerts.pages %}
+        {% if end < alerts.pages - 1 %}<span class="px-1 text-gray-300">...</span>{% endif %}
+        <a href="/watchlist/alerts?page={{ alerts.pages }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
+           class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ alerts.pages }}</a>
+        {% endif %}
+
+        {# Next button #}
+        {% if alerts.page < alerts.pages %}
+        <a href="/watchlist/alerts?page={{ alerts.page + 1 }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
+           class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">&rarr;</a>
+        {% endif %}
     </div>
     {% endif %}
 
     {% else %}
     <div class="text-center py-16">
-        <p class="text-gray-400 text-sm">No hay alertas{% if solo_no_leidas %} sin leer{% endif %}{% if source == 'watchlist' %} de empresas vigiladas{% elif source == 'act_type' %} de tipos de acto{% endif %}.</p>
+        <p class="text-gray-400 text-sm">No hay alertas{% if solo_no_leidas %} sin leer{% endif %}{% if source == 'watchlist' %} de empresas vigiladas{% elif source == 'act_type' %} de tipos de acto{% endif %}{% if fecha_desde or fecha_hasta %} en el rango de fechas seleccionado{% endif %}.</p>
         <p class="text-gray-300 text-xs mt-1">Las alertas se generan cuando se detecta actividad nueva en empresas vigiladas o tipos de acto suscritos.</p>
     </div>
     {% endif %}
@@ -105,11 +168,22 @@
 </div>
 
 <script>
+const _soloNoLeidas = {{ 'true' if solo_no_leidas else 'false' }};
+
 async function markRead(alertId, btn) {
     const resp = await fetch('/api/watchlist/alerts/' + alertId + '/read', { method: 'POST' });
     if (resp.ok) {
-        btn.closest('.card').classList.remove('border-l-2', 'border-l-brand-500');
-        btn.remove();
+        const card = document.getElementById('alert-' + alertId);
+        if (_soloNoLeidas) {
+            card.style.transition = 'opacity 0.3s, max-height 0.3s';
+            card.style.opacity = '0';
+            setTimeout(function() { card.remove(); }, 300);
+        } else {
+            card.classList.remove('border-l-2', 'border-l-brand-500');
+            var badges = card.querySelectorAll('.bg-amber-50');
+            badges.forEach(function(b) { b.remove(); });
+            btn.remove();
+        }
     }
 }
 

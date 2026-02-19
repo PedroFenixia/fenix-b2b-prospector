@@ -87,8 +87,12 @@ async def get_alerts(
     per_page: int = 25,
     user_id: int | None = None,
     source: str | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
 ) -> dict:
     """Obtener alertas."""
+    from datetime import datetime, time
+
     count_q = select(func.count(Alert.id))
     items_q = select(Alert).options(joinedload(Alert.company), joinedload(Alert.act))
 
@@ -101,6 +105,14 @@ async def get_alerts(
     if source:
         count_q = count_q.where(Alert.source == source)
         items_q = items_q.where(Alert.source == source)
+    if fecha_desde:
+        dt_desde = datetime.combine(fecha_desde, time.min)
+        count_q = count_q.where(Alert.created_at >= dt_desde)
+        items_q = items_q.where(Alert.created_at >= dt_desde)
+    if fecha_hasta:
+        dt_hasta = datetime.combine(fecha_hasta, time.max)
+        count_q = count_q.where(Alert.created_at <= dt_hasta)
+        items_q = items_q.where(Alert.created_at <= dt_hasta)
 
     total = await db.scalar(count_q)
     offset = (page - 1) * per_page

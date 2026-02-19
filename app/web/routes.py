@@ -686,18 +686,36 @@ async def alerts_page(
     solo_no_leidas: int = 0,
     source: str = "",
     page: int = 1,
+    fecha_desde: str = "",
+    fecha_hasta: str = "",
     db: AsyncSession = Depends(get_db),
 ):
+    from datetime import date as date_type
     user = get_current_user(request)
     user_id = user["user_id"] if user else None
     unread = await count_unread_alerts(db, user_id=user_id)
     source_filter = source if source in ("watchlist", "act_type") else None
+
+    fd, fh = None, None
+    try:
+        if fecha_desde:
+            fd = date_type.fromisoformat(fecha_desde)
+    except ValueError:
+        pass
+    try:
+        if fecha_hasta:
+            fh = date_type.fromisoformat(fecha_hasta)
+    except ValueError:
+        pass
+
     alerts_result = await get_alerts(
         db, solo_no_leidas=bool(solo_no_leidas), page=page,
         user_id=user_id, source=source_filter,
+        fecha_desde=fd, fecha_hasta=fh,
     )
     return templates.TemplateResponse("alerts.html", _ctx(
         request, alerts=alerts_result, unread_count=unread,
         solo_no_leidas=bool(solo_no_leidas), source=source,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
         active_page="watchlist",
     ))
