@@ -10,14 +10,14 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Empresas</p>
             <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_companies|eu }}</p>
         </div>
-        <div class="card p-5 min-w-0">
+        <div class="card p-5 min-w-0 lg:col-span-2">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Actos</p>
-            <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_acts|eu }}</p>
+            <p class="text-lg lg:text-2xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_acts|eu }}</p>
         </div>
         <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Cargos</p>
