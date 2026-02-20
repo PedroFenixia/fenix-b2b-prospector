@@ -64,23 +64,57 @@ def get_cnae_description(code: str) -> str | None:
     return None
 
 
+def _extract_cnae_after_keyword(text: str, valid_divisions: set[str]) -> str | None:
+    """Extract CNAE division code from explicit 'CNAE' mentions in text."""
+    for m in re.finditer(r"CNAE", text, re.IGNORECASE):
+        rest = text[m.end():]
+        # Skip optional year reference: " 2009)", "-2009", etc.
+        year_m = re.match(r"[\s:\-]*20\d{2}\s*\)?", rest)
+        if year_m:
+            rest = rest[year_m.end():]
+        # Skip optional "actividad principal:" / "de la actividad principal"
+        act_m = re.match(
+            r"[\s:\-]*(?:actividad\s+principal|de\s+la\s+actividad\s+princ(?:ipal)?)\s*:?\s*",
+            rest, re.IGNORECASE,
+        )
+        if act_m:
+            rest = rest[act_m.end():]
+        # Skip separators (space, colon, hyphen)
+        sep_m = re.match(r"[\s:\-]+", rest)
+        if sep_m:
+            rest = rest[sep_m.end():]
+        # Extract code: "59.15", "5610", "43.2", "68,10", "6421", "9002Domicilio"
+        code_m = re.match(r"(\d{2})[.,]?(\d{1,2})?(?!\d)", rest)
+        if code_m:
+            division = code_m.group(1)
+            if division in valid_divisions:
+                return division
+    return None
+
+
 def guess_cnae(objeto_social: str) -> str | None:
     """Best-effort CNAE code from objeto_social text. Returns division code or None."""
     if not objeto_social:
         return None
 
-    # 1. Try to extract explicit CNAE codes from text (e.g. "6202 / ACTIVIDADES DE...")
-    explicit = re.findall(r"\b(\d{4})\b", objeto_social)
-    if explicit:
-        # Use the first 4-digit code's first 2 digits as division
-        division = explicit[0][:2]
-        # Verify it's a valid CNAE division (01-99)
-        codes = _load()
-        valid_divisions = {item.get("code", "")[:2] for item in codes if item.get("code")}
+    # Valid CNAE-2009 divisions (01-99, excluding unused ranges)
+    valid_divisions = {f"{i:02d}" for i in range(1, 100)}
+
+    # 1. Look for explicit "CNAE" keyword followed by a code
+    found = _extract_cnae_after_keyword(objeto_social, valid_divisions)
+    if found:
+        return found
+
+    # 2. Fallback: any bare 4-digit code that isn't a year (19xx/20xx)
+    for m in re.finditer(r"\b(\d{4})\b", objeto_social):
+        code4 = m.group(1)
+        if code4[:2] in ("19", "20"):
+            continue  # skip years
+        division = code4[:2]
         if division in valid_divisions:
             return division
 
-    # 2. Keyword matching (normalize accents for comparison)
+    # 3. Keyword matching (normalize accents for comparison)
     text = unidecode(objeto_social).lower()
     best_code = None
     best_count = 0
