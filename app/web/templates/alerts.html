@@ -125,45 +125,87 @@
     <div id="alerts-list">
     {% if alerts.total > 0 %}
     <p class="text-xs text-gray-400 mb-3">{{ alerts.total }} alerta{{ 's' if alerts.total != 1 else '' }}</p>
-    <div class="space-y-2">
-        {% for alert in alerts['items'] %}
-        <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}" id="alert-{{ alert.id }}">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
-                    {% if alert.source == 'act_type' %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-600 border border-purple-100">Tipo de acto</span>
-                    {% else %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-100">Vigilancia</span>
-                    {% endif %}
-                    {% if not alert.leida %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Nueva</span>
-                    {% endif %}
-                    <span class="text-[11px] text-gray-500 font-mono font-medium">{{ alert.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-                </div>
-                <a href="/companies/{{ alert.company_id }}" class="text-sm font-semibold text-gray-900 hover:text-brand-500 transition mt-1 block">
-                    {{ alert.titulo }}
-                </a>
-                {% if alert.descripcion %}
-                <p class="text-xs text-gray-400 mt-1 line-clamp-2">{{ alert.descripcion[:200] }}</p>
+
+    {# Macro for rendering a single alert card #}
+    {% macro alert_card(alert) %}
+    <div class="card p-4 flex items-start gap-3 {% if not alert.leida %}border-l-2 border-l-brand-500{% endif %}" id="alert-{{ alert.id }}">
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-600 border border-brand-100">{{ alert.tipo }}</span>
+                {% if not alert.leida %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Nueva</span>
                 {% endif %}
+                <span class="text-[11px] text-gray-500 font-mono font-medium">{{ alert.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
             </div>
-            {% if not alert.leida %}
-            <button type="button" onclick="markRead({{ alert.id }}, this)" class="text-xs text-brand-500 hover:text-brand-600 font-medium whitespace-nowrap">Marcar le&iacute;da</button>
+            <a href="/companies/{{ alert.company_id }}" class="text-sm font-semibold text-gray-900 hover:text-brand-500 transition mt-1 block">
+                {{ alert.titulo }}
+            </a>
+            {% if alert.descripcion %}
+            <p class="text-xs text-gray-400 mt-1 line-clamp-2">{{ alert.descripcion[:200] }}</p>
             {% endif %}
         </div>
-        {% endfor %}
+        {% if not alert.leida %}
+        <button type="button" onclick="markRead({{ alert.id }}, this)" class="text-xs text-brand-500 hover:text-brand-600 font-medium whitespace-nowrap">Marcar le&iacute;da</button>
+        {% endif %}
     </div>
+    {% endmacro %}
 
+    {# When showing all sources, split into two sections #}
+    {% if not source %}
+        {% set watchlist_alerts = alerts['items'] | selectattr('source', 'equalto', 'watchlist') | list %}
+        {% set act_type_alerts = alerts['items'] | selectattr('source', 'equalto', 'act_type') | list %}
+
+        {# -- Empresas vigiladas section -- #}
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100">Empresas vigiladas</span>
+                <span class="text-xs text-gray-400">({{ watchlist_alerts | length }} en esta p&aacute;gina)</span>
+            </div>
+            {% if watchlist_alerts %}
+            <div class="space-y-2">
+                {% for alert in watchlist_alerts %}
+                {{ alert_card(alert) }}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-gray-300 pl-2">Sin alertas de empresas vigiladas en esta p&aacute;gina</p>
+            {% endif %}
+        </div>
+
+        {# -- Tipos de acto section -- #}
+        <div class="mb-4">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-600 border border-purple-100">Tipos de acto suscritos</span>
+                <span class="text-xs text-gray-400">({{ act_type_alerts | length }} en esta p&aacute;gina)</span>
+            </div>
+            {% if act_type_alerts %}
+            <div class="space-y-2">
+                {% for alert in act_type_alerts %}
+                {{ alert_card(alert) }}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-gray-300 pl-2">Sin alertas de tipos de acto en esta p&aacute;gina</p>
+            {% endif %}
+        </div>
+
+    {% else %}
+        {# Filtered view: single list #}
+        <div class="space-y-2">
+            {% for alert in alerts['items'] %}
+            {{ alert_card(alert) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# Pagination #}
     {% if alerts.pages > 1 %}
     <div class="flex justify-center items-center gap-1 mt-4">
-        {# Previous button #}
         {% if alerts.page > 1 %}
         <a href="/watchlist/alerts?page={{ alerts.page - 1 }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">&larr;</a>
         {% endif %}
 
-        {# Windowed page numbers #}
         {% set window = 2 %}
         {% set start = [1, alerts.page - window] | max %}
         {% set end = [alerts.pages, alerts.page + window] | min %}
@@ -189,7 +231,6 @@
            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">{{ alerts.pages }}</a>
         {% endif %}
 
-        {# Next button #}
         {% if alerts.page < alerts.pages %}
         <a href="/watchlist/alerts?page={{ alerts.page + 1 }}{% if solo_no_leidas %}&solo_no_leidas=1{% endif %}{% if source %}&source={{ source }}{% endif %}{{ dp }}"
            class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-brand-500 hover:text-brand-500 transition">&rarr;</a>

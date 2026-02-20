@@ -11,33 +11,33 @@
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Empresas</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_companies|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_companies|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Actos</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_acts|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_acts|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Cargos</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.total_officers|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.total_officers|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Subvenciones</p>
-            <p class="text-2xl font-extrabold text-amber-600 mt-1 font-mono">{{ stats.total_subsidies|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-amber-600 mt-1 font-mono whitespace-nowrap">{{ stats.total_subsidies|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Licitaciones</p>
-            <p class="text-2xl font-extrabold text-cyan-600 mt-1 font-mono">{{ stats.total_tenders|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-cyan-600 mt-1 font-mono whitespace-nowrap">{{ stats.total_tenders|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Judiciales</p>
-            <p class="text-2xl font-extrabold text-amber-600 mt-1 font-mono">{{ stats.total_judicial|default(0)|eu }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-amber-600 mt-1 font-mono whitespace-nowrap">{{ stats.total_judicial|default(0)|eu }}</p>
         </div>
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             <p class="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">D&iacute;as BORME</p>
-            <p class="text-2xl font-extrabold text-gray-900 mt-1 font-mono">{{ stats.ingestion_coverage.total_days }}</p>
+            <p class="text-lg lg:text-xl font-extrabold text-gray-900 mt-1 font-mono whitespace-nowrap">{{ stats.ingestion_coverage.total_days }}</p>
             {% if stats.ingestion_coverage.first_date %}
             <p class="text-[10px] text-gray-400 mt-0.5">{{ stats.ingestion_coverage.first_date }}</p>
             {% endif %}
